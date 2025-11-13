@@ -14,7 +14,7 @@ static const bool DIGIT_SEGMENTS[10][7] = {
   {1, 0, 1, 1, 1, 1, 1}, // 6
   {1, 1, 1, 0, 0, 0, 0}, // 7
   {1, 1, 1, 1, 1, 1, 1}, // 8
-  {1, 1, 1, 1, 0, 1, 1}  // 9
+  {1, 1, 1, 0, 0, 1, 1}  // 9
 };
 
 // Draw a distorted segment - center is at 15% from top, so middle segment is much higher
@@ -274,7 +274,7 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // hour_tens = 2;
   // hour_ones = 3;
   // min_tens = 3;
-  // min_ones = 8;
+  // min_ones = 9;
 
   // Nested digits approach:
   // Level 1 (largest): hour_tens - centered, very large

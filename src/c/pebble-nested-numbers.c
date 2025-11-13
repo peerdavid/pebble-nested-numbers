@@ -274,14 +274,8 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // hour_tens = 2;
   // hour_ones = 3;
   // min_tens = 3;
-  // min_ones = 9;
+  // min_ones = 8;
 
-  // Nested digits approach:
-  // Level 1 (largest): hour_tens - centered, very large
-  // Level 2: hour_ones - inside the body (bottom 85%) of hour_tens
-  // Level 3: min_tens - inside the body of hour_ones
-  // Level 4 (smallest): min_ones - inside the body of min_tens
-  
   // Size calculations - each level is scaled to fit in the body (85% bottom portion) of previous
   int level1_width = 144-6;
   int level1_height = 168-10;
@@ -308,10 +302,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
                                 level3_center.y + level3_height * 0.06);
   
   // Draw from largest to smallest
-  draw_distorted_digit(ctx, hour_tens, level1_center, level1_width, level1_height, 6, GColorWhite);
-  draw_distorted_digit(ctx, hour_ones, level2_center, level2_width, level2_height, 5, GColorLightGray);
-  draw_distorted_digit(ctx, min_tens, level3_center, level3_width, level3_height, 4, GColorWhite);
-  draw_normal_digit(ctx, min_ones, level4_center, level4_width, level4_height, 4, GColorLightGray);
+  draw_distorted_digit(ctx, min_ones, level1_center, level1_width, level1_height, 6, GColorWhite);
+  draw_distorted_digit(ctx, min_tens, level2_center, level2_width, level2_height, 5, GColorLightGray);
+  draw_distorted_digit(ctx, hour_ones, level3_center, level3_width, level3_height, 4, GColorWhite);
+  draw_normal_digit(ctx, hour_tens, level4_center, level4_width, level4_height, 4, GColorLightGray);
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {

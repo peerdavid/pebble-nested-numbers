@@ -9,6 +9,12 @@ static int s_animation_frame = 0;
 static bool s_is_animating = false;
 static bool s_grow_only = false;  // If true, skip shrink phase
 
+// Store the time to display during animation
+static int s_stored_hour_tens = 0;
+static int s_stored_hour_ones = 0;
+static int s_stored_min_tens = 0;
+static int s_stored_min_ones = 0;
+
 #define ANIMATION_FRAMES_SHRINK 16
 #define ANIMATION_FRAMES_GROW 16
 #define TOTAL_ANIMATION_FRAMES (ANIMATION_FRAMES_SHRINK + ANIMATION_FRAMES_GROW)
@@ -336,6 +342,18 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   int min_tens = minutes / 10;
   int min_ones = minutes % 10;
   
+  // During animation, use stored old time during shrink, new time during grow
+  if (s_is_animating && !s_grow_only) {
+    if (s_animation_frame < ANIMATION_FRAMES_SHRINK) {
+      // Shrinking - show old time
+      hour_tens = s_stored_hour_tens;
+      hour_ones = s_stored_hour_ones;
+      min_tens = s_stored_min_tens;
+      min_ones = s_stored_min_ones;
+    }
+    // else: Growing - show new time (current values)
+  }
+  
   // hour_tens = 2;
   // hour_ones = 3;
   // min_tens = 3;
@@ -416,6 +434,28 @@ static void start_animation(bool grow_only) {
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   // Start animation at the beginning of each minute
   if (tick_time->tm_sec == 0) {
+    // Store the OLD time (which is the previous minute)
+    // Since it just turned to a new minute, we need to calculate the previous minute
+    int current_minutes = tick_time->tm_min;
+    int current_hours = tick_time->tm_hour;
+    
+    // Go back one minute to get the old time
+    int old_minutes = current_minutes - 1;
+    int old_hours = current_hours;
+    
+    if (old_minutes < 0) {
+      old_minutes = 59;
+      old_hours = current_hours - 1;
+      if (old_hours < 0) {
+        old_hours = 23;
+      }
+    }
+    
+    s_stored_hour_tens = old_hours / 10;
+    s_stored_hour_ones = old_hours % 10;
+    s_stored_min_tens = old_minutes / 10;
+    s_stored_min_ones = old_minutes % 10;
+    
     start_animation(false);  // Full animation (shrink + grow)
   } else {
     layer_mark_dirty(s_display_layer);

@@ -9,6 +9,10 @@ static int s_animation_frame = 0;
 static bool s_is_animating = false;
 static bool s_grow_only = false;  // If true, skip shrink phase
 
+// Date display state
+static bool s_showing_date = false;
+static AppTimer *s_date_timer = NULL;
+
 // Store the time to display during animation
 static int s_stored_hour_tens = 0;
 static int s_stored_hour_ones = 0;
@@ -333,14 +337,33 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   time_t temp = time(NULL);
   struct tm *tick_time = localtime(&temp);
   
-  int hours = tick_time->tm_hour;
-  int minutes = tick_time->tm_min;
+  int digit_0, digit_1, digit_2, digit_3;
+  
+  if (s_showing_date) {
+    // Show date: month and day (MM-DD)
+    int month = tick_time->tm_mon + 1;  // tm_mon is 0-11
+    int day = tick_time->tm_mday;
+    
+    digit_0 = month / 10;
+    digit_1 = month % 10;
+    digit_2 = day / 10;
+    digit_3 = day % 10;
+  } else {
+    // Show time: hours and minutes (HH:MM)
+    int hours = tick_time->tm_hour;
+    int minutes = tick_time->tm_min;
+    
+    digit_0 = hours / 10;
+    digit_1 = hours % 10;
+    digit_2 = minutes / 10;
+    digit_3 = minutes % 10;
+  }
   
   // Extract digits
-  int hour_tens = hours / 10;
-  int hour_ones = hours % 10;
-  int min_tens = minutes / 10;
-  int min_ones = minutes % 10;
+  int hour_tens = digit_0;
+  int hour_ones = digit_1;
+  int min_tens = digit_2;
+  int min_ones = digit_3;
   
   // During animation, use stored old time during shrink, new time during grow
   if (s_is_animating && !s_grow_only) {
@@ -431,9 +454,56 @@ static void start_animation(bool grow_only) {
   layer_mark_dirty(s_display_layer);
 }
 
+static void date_timer_callback(void *data) {
+  // Switch back to time display
+  s_date_timer = NULL;
+  
+  // Store current date values for animation
+  time_t temp = time(NULL);
+  struct tm *tick_time = localtime(&temp);
+  int month = tick_time->tm_mon + 1;
+  int day = tick_time->tm_mday;
+  
+  s_stored_hour_tens = month / 10;
+  s_stored_hour_ones = month % 10;
+  s_stored_min_tens = day / 10;
+  s_stored_min_ones = day % 10;
+  
+  s_showing_date = false;
+  start_animation(false);  // Animate from date to time
+}
+
+static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
+  // Handle flick gesture
+  if (s_showing_date) {
+    // Already showing date, cancel timer and extend display
+    if (s_date_timer) {
+      app_timer_cancel(s_date_timer);
+    }
+    s_date_timer = app_timer_register(5000, date_timer_callback, NULL);
+  } else {
+    // Store current time values for animation
+    time_t temp = time(NULL);
+    struct tm *tick_time = localtime(&temp);
+    int hours = tick_time->tm_hour;
+    int minutes = tick_time->tm_min;
+    
+    s_stored_hour_tens = hours / 10;
+    s_stored_hour_ones = hours % 10;
+    s_stored_min_tens = minutes / 10;
+    s_stored_min_ones = minutes % 10;
+    
+    s_showing_date = true;
+    start_animation(false);  // Animate from time to date
+    
+    // Set timer to switch back to time after 5 seconds
+    s_date_timer = app_timer_register(5000, date_timer_callback, NULL);
+  }
+}
+
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-  // Start animation at the beginning of each minute
-  if (tick_time->tm_sec == 0) {
+  // Start animation at the beginning of each minute (only when showing time)
+  if (tick_time->tm_sec == 0 && !s_showing_date) {
     // Store the OLD time (which is the previous minute)
     // Since it just turned to a new minute, we need to calculate the previous minute
     int current_minutes = tick_time->tm_min;
@@ -490,6 +560,9 @@ static void init(void) {
   
   // Register with TickTimerService - use SECOND_UNIT to detect minute changes
   tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
+  
+  // Register with AccelTapService for flick gestures
+  accel_tap_service_subscribe(accel_tap_handler);
 }
 
 static void deinit(void) {
@@ -498,6 +571,15 @@ static void deinit(void) {
     app_timer_cancel(s_animation_timer);
     s_animation_timer = NULL;
   }
+  
+  // Cancel date timer if running
+  if (s_date_timer) {
+    app_timer_cancel(s_date_timer);
+    s_date_timer = NULL;
+  }
+  
+  // Unsubscribe from services
+  accel_tap_service_unsubscribe();
   
   window_destroy(s_main_window);
 }

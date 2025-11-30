@@ -364,17 +364,17 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   int hour_ones = digit_1;
   int min_tens = digit_2;
   int min_ones = digit_3;
+
+  bool is_shrinking = (s_animation_frame < ANIMATION_FRAMES_SHRINK);
+  bool is_growing = (s_animation_frame >= ANIMATION_FRAMES_SHRINK);
+  bool is_pause = (s_animation_frame == 0);
   
   // During animation, use stored old time during shrink, new time during grow
-  if (s_is_animating && !s_grow_only) {
-    if (s_animation_frame < ANIMATION_FRAMES_SHRINK) {
-      // Shrinking - show old time
-      hour_tens = s_stored_hour_tens;
-      hour_ones = s_stored_hour_ones;
-      min_tens = s_stored_min_tens;
-      min_ones = s_stored_min_ones;
-    }
-    // else: Growing - show new time (current values)
+  if (is_shrinking && s_is_animating && !s_grow_only) {
+    hour_tens = s_stored_hour_tens;
+    hour_ones = s_stored_hour_ones;
+    min_tens = s_stored_min_tens;
+    min_ones = s_stored_min_ones;
   }
   
   // hour_tens = 2;
@@ -414,10 +414,16 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   float scale_level3 = s_is_animating ? get_digit_scale(3, s_animation_frame) : 1.0f;
   
   // Draw from largest to smallest
-  draw_distorted_digit(ctx, min_ones, level1_center, level1_width, level1_height, 6, GColorWhite, scale_level3);
-  draw_distorted_digit(ctx, min_tens, level2_center, level2_width, level2_height, 5, GColorLightGray, scale_level2);
-  draw_distorted_digit(ctx, hour_ones, level3_center, level3_width, level3_height, 4, GColorWhite, scale_level1);
-  draw_normal_digit(ctx, hour_tens, level4_center, level4_width, level4_height, 4, GColorLightGray, scale_level0);
+  // Colors are white gray white gray for time and gray gray white white for date
+  GColor color_level1 = s_showing_date && is_pause ? GColorWhite : GColorWhite;
+  GColor color_level2 = s_showing_date && is_pause ? GColorWhite : GColorLightGray;
+  GColor color_level3 = s_showing_date && is_pause ? GColorLightGray : GColorWhite;
+  GColor color_level4 = s_showing_date && is_pause ? GColorLightGray : GColorLightGray;
+
+  draw_distorted_digit(ctx, min_ones, level1_center, level1_width, level1_height, 6, color_level1, scale_level3);
+  draw_distorted_digit(ctx, min_tens, level2_center, level2_width, level2_height, 5, color_level2, scale_level2);
+  draw_distorted_digit(ctx, hour_ones, level3_center, level3_width, level3_height, 4, color_level3, scale_level1);
+  draw_normal_digit(ctx, hour_tens, level4_center, level4_width, level4_height, 4, color_level4, scale_level0);
 }
 
 static void animation_timer_callback(void *data) {

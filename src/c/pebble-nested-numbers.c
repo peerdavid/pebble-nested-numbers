@@ -390,10 +390,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // min_tens = 1;
   // min_ones = 8;
 
-  hour_tens = 8;
-  hour_ones = 8;
-  min_tens = 8;
-  min_ones = 8;
+  // hour_tens = 8;
+  // hour_ones = 8;
+  // min_tens = 8;
+  // min_ones = 8;
 
   // Size calculations - each level is scaled to fit in the body (85% bottom portion) of previous
   int level1_width = 144-6;

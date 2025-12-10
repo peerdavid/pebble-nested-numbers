@@ -23,6 +23,9 @@ static int s_stored_min_ones = 0;
 #define ANIMATION_FRAMES_GROW 16
 #define TOTAL_ANIMATION_FRAMES (ANIMATION_FRAMES_SHRINK + ANIMATION_FRAMES_GROW)
 #define ANIMATION_FRAME_DURATION_MS 40
+#define VERT_DISTORTION_FACTOR_R 2
+#define VERT_DISTORTION_FACTOR_L 2
+
 
 // Segment indices: 0=top, 1=top-right, 2=bottom-right, 3=bottom, 4=bottom-left, 5=top-left, 6=middle
 static const bool DIGIT_SEGMENTS[10][7] = {
@@ -118,10 +121,10 @@ static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_typ
         int mid_y = distorted_center_y;
         int x = center.x + segment_width / 2;
         
-        points[0] = GPoint(x - segment_thickness, top_y);
+        points[0] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, top_y);
         points[1] = GPoint(x, top_y);
         points[2] = GPoint(x, mid_y);
-        points[3] = GPoint(x - segment_thickness, mid_y);
+        points[3] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, mid_y);
       }
       break;
       
@@ -131,10 +134,10 @@ static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_typ
         int bottom_y = center.y + digit_height / 2;
         int x = center.x + segment_width / 2;
         
-        points[0] = GPoint(x - segment_thickness, mid_y);
+        points[0] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, mid_y);
         points[1] = GPoint(x, mid_y);
         points[2] = GPoint(x, bottom_y);
-        points[3] = GPoint(x - segment_thickness, bottom_y);
+        points[3] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, bottom_y);
       }
       break;
       
@@ -155,8 +158,8 @@ static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_typ
         int x = center.x - segment_width / 2;
         
         points[0] = GPoint(x, mid_y);
-        points[1] = GPoint(x + segment_thickness, mid_y);
-        points[2] = GPoint(x + segment_thickness, bottom_y);
+        points[1] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, mid_y);
+        points[2] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, bottom_y);
         points[3] = GPoint(x, bottom_y);
       }
       break;
@@ -168,8 +171,8 @@ static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_typ
         int x = center.x - segment_width / 2;
         
         points[0] = GPoint(x, top_y);
-        points[1] = GPoint(x + segment_thickness, top_y);
-        points[2] = GPoint(x + segment_thickness, mid_y);
+        points[1] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, top_y);
+        points[2] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, mid_y);
         points[3] = GPoint(x, mid_y);
       }
       break;
@@ -222,10 +225,10 @@ static void draw_normal_segment(GContext *ctx, GPoint center, int segment_type, 
         int mid_y = center.y;
         int x = center.x + segment_width / 2;
         
-        points[0] = GPoint(x - segment_thickness, top_y);
+        points[0] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, top_y);
         points[1] = GPoint(x, top_y);
         points[2] = GPoint(x, mid_y);
-        points[3] = GPoint(x - segment_thickness, mid_y);
+        points[3] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, mid_y);
       }
       break;
       
@@ -235,10 +238,10 @@ static void draw_normal_segment(GContext *ctx, GPoint center, int segment_type, 
         int bottom_y = center.y + digit_height / 2;
         int x = center.x + segment_width / 2;
         
-        points[0] = GPoint(x - segment_thickness, mid_y);
+        points[0] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, mid_y);
         points[1] = GPoint(x, mid_y);
         points[2] = GPoint(x, bottom_y);
-        points[3] = GPoint(x - segment_thickness, bottom_y);
+        points[3] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, bottom_y);
       }
       break;
       
@@ -259,8 +262,8 @@ static void draw_normal_segment(GContext *ctx, GPoint center, int segment_type, 
         int x = center.x - segment_width / 2;
         
         points[0] = GPoint(x, mid_y);
-        points[1] = GPoint(x + segment_thickness, mid_y);
-        points[2] = GPoint(x + segment_thickness, bottom_y);
+        points[1] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, mid_y);
+        points[2] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, bottom_y);
         points[3] = GPoint(x, bottom_y);
       }
       break;
@@ -272,8 +275,8 @@ static void draw_normal_segment(GContext *ctx, GPoint center, int segment_type, 
         int x = center.x - segment_width / 2;
         
         points[0] = GPoint(x, top_y);
-        points[1] = GPoint(x + segment_thickness, top_y);
-        points[2] = GPoint(x + segment_thickness, mid_y);
+        points[1] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, top_y);
+        points[2] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, mid_y);
         points[3] = GPoint(x, mid_y);
       }
       break;
@@ -382,6 +385,16 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // min_tens = 3;
   // min_ones = 8;
 
+  // hour_tens = 1;
+  // hour_ones = 9;
+  // min_tens = 1;
+  // min_ones = 8;
+
+  // hour_tens = 8;
+  // hour_ones = 8;
+  // min_tens = 8;
+  // min_ones = 8;
+
   // Size calculations - each level is scaled to fit in the body (85% bottom portion) of previous
   int level1_width = 144-6;
   int level1_height = 168-10;
@@ -390,22 +403,22 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // Level 2: positioned in the body of level 1 (the large bottom 85%)
   // The body center is at: level1_center.y + (level1_height * 0.35 / 2)
   // Body height is: level1_height * 0.85
-  int level2_width = level1_width * 0.85;
-  int level2_height = level1_height * 0.72;
+  int level2_width = level1_width * 0.82;
+  int level2_height = level1_height * 0.70;
   GPoint level2_center = GPoint(level1_center.x, 
-                                level1_center.y + level1_height * 0.07);
+                                level1_center.y + level1_height * 0.068);
   
   // Level 3: positioned in the body of level 2
-  int level3_width = level2_width * 0.83;
-  int level3_height = level2_height * 0.68;
+  int level3_width = level1_width * 0.65;
+  int level3_height = level1_width * 0.52;
   GPoint level3_center = GPoint(level2_center.x, 
-                                level2_center.y + level2_height * 0.07);
+                                level2_center.y + level2_height * 0.065);
   
   // Level 4: positioned in the body of level 3
-  int level4_width = level3_width * 0.81;
-  int level4_height = level3_height * 0.63;
+  int level4_width = level3_width * 0.75;
+  int level4_height = level3_height * 0.56;
   GPoint level4_center = GPoint(level3_center.x, 
-                                level3_center.y + level3_height * 0.06);
+                                level3_center.y + level3_height * 0.068);
   
   // Calculate scale factors for animation
   float scale_level0 = s_is_animating ? get_digit_scale(0, s_animation_frame) : 1.0f;

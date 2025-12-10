@@ -84,7 +84,7 @@ static float get_digit_scale(int level, int animation_frame) {
 }
 
 // Draw a distorted segment - center is at 15% from top, so middle segment is much higher
-static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_type, int digit_width, int digit_height, int segment_thickness, float scale) {
+static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_type, int digit_width, int digit_height, int segment_thickness, float scale, float distortion) {
   // Apply scale to dimensions
   digit_width *= scale;
   digit_height *= scale;
@@ -99,7 +99,7 @@ static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_typ
   // If digit spans from (center.y - h/2) to (center.y + h/2)
   // The middle should be at: top + 0.15 * height = (center.y - h/2) + 0.15*h
   // Which is: center.y - h/2 + 0.15*h = center.y + h*(-0.5 + 0.15) = center.y - 0.35*h
-  int distorted_center_y = center.y - digit_height * 0.35;
+  int distorted_center_y = center.y - digit_height * distortion;
   
   GPathInfo segment_path_info;
   GPoint points[4];
@@ -301,7 +301,7 @@ static void draw_normal_segment(GContext *ctx, GPoint center, int segment_type, 
 }
 
 // Draw a single digit with distortion
-static void draw_distorted_digit(GContext *ctx, int digit, GPoint center, int width, int height, int thickness, GColor color, float scale) {
+static void draw_distorted_digit(GContext *ctx, int digit, GPoint center, int width, int height, int thickness, GColor color, float scale, float distortion) {
   if (digit < 0 || digit > 9) return;
   if (scale <= 0.0f) return;  // Don't draw if scale is 0
   
@@ -309,7 +309,7 @@ static void draw_distorted_digit(GContext *ctx, int digit, GPoint center, int wi
   
   for (int i = 0; i < 7; i++) {
     if (DIGIT_SEGMENTS[digit][i]) {
-      draw_distorted_segment(ctx, center, i, width, height, thickness, scale);
+      draw_distorted_segment(ctx, center, i, width, height, thickness, scale, distortion);
     }
   }
 }
@@ -390,10 +390,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // min_tens = 1;
   // min_ones = 8;
 
-  // hour_tens = 8;
-  // hour_ones = 8;
-  // min_tens = 8;
-  // min_ones = 8;
+  hour_tens = 8;
+  hour_ones = 8;
+  min_tens = 8;
+  min_ones = 8;
 
   // Size calculations - each level is scaled to fit in the body (85% bottom portion) of previous
   int level1_width = 144-6;
@@ -409,16 +409,16 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
                                 level1_center.y + level1_height * 0.068);
   
   // Level 3: positioned in the body of level 2
-  int level3_width = level1_width * 0.65;
-  int level3_height = level1_width * 0.52;
+  int level3_width = level1_width * 0.64;
+  int level3_height = level1_width * 0.48;
   GPoint level3_center = GPoint(level2_center.x, 
-                                level2_center.y + level2_height * 0.065);
+                                level2_center.y + level2_height * 0.088);
   
   // Level 4: positioned in the body of level 3
-  int level4_width = level3_width * 0.75;
-  int level4_height = level3_height * 0.56;
+  int level4_width = level3_width * 0.76;
+  int level4_height = level3_height * 0.48;
   GPoint level4_center = GPoint(level3_center.x, 
-                                level3_center.y + level3_height * 0.068);
+                                level3_center.y + level3_height * 0.12);
   
   // Calculate scale factors for animation
   float scale_level0 = s_is_animating ? get_digit_scale(0, s_animation_frame) : 1.0f;
@@ -433,9 +433,9 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   GColor color_level3 = s_showing_date && is_pause ? GColorLightGray : GColorWhite;
   GColor color_level4 = s_showing_date && is_pause ? GColorLightGray : GColorLightGray;
 
-  draw_distorted_digit(ctx, min_ones, level1_center, level1_width, level1_height, 6, color_level1, scale_level3);
-  draw_distorted_digit(ctx, min_tens, level2_center, level2_width, level2_height, 5, color_level2, scale_level2);
-  draw_distorted_digit(ctx, hour_ones, level3_center, level3_width, level3_height, 4, color_level3, scale_level1);
+  draw_distorted_digit(ctx, min_ones, level1_center, level1_width, level1_height, 6, color_level1, scale_level3, 0.35);
+  draw_distorted_digit(ctx, min_tens, level2_center, level2_width, level2_height, 5, color_level2, scale_level2, 0.30);
+  draw_distorted_digit(ctx, hour_ones, level3_center, level3_width, level3_height, 4, color_level3, scale_level1, 0.25);
   draw_normal_digit(ctx, hour_tens, level4_center, level4_width, level4_height, 4, color_level4, scale_level0);
 }
 

@@ -322,7 +322,7 @@ typedef struct {
 } DigitLayout;
 
 // Calculate nested digit layouts based on screen bounds and distortion
-static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4]) {
+static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int digits[4]) {
   // Level 0 (outermost): Fill screen without margins
   layouts[0].width = bounds.size.w;
   layouts[0].height = bounds.size.h;
@@ -337,6 +337,13 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4]) {
     
     // Calculate where parent's middle segment is located
     int parent_middle_y = parent->center.y - parent->height * parent->distortion;
+
+    // Check if parent digit has no middle segment (0, 1, 7)
+    int parent_digit = digits[level - 1];
+    bool is_0_1_or_7 = (parent_digit == 0 || parent_digit == 1 || parent_digit == 7);
+    if(is_0_1_or_7){
+      parent_middle_y = parent->center.y - parent->height/2 + parent->thickness; // Move middle_y to just below top segment
+    }
     
     // Calculate parent's body region (from middle segment to bottom)
     int parent_top = parent->center.y - parent->height / 2;
@@ -356,6 +363,8 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4]) {
     
     // Thickness decreases with each level
     current->thickness = 6 - level;
+    current->thickness = current->thickness < 4 ? 4 : current->thickness;
+
     
     // Set distortion based on level
     if (level == 1) current->distortion = DISTORTION_LEVEL_2;
@@ -443,10 +452,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
     min_ones = s_stored_min_ones;
   }
   
-  // hour_tens = 2;
-  // hour_ones = 3;
-  // min_tens = 3;
-  // min_ones = 8;
+  hour_tens = 2;
+  hour_ones = 3;
+  min_tens = 3;
+  min_ones = 8;
 
   // hour_tens = 1;
   // hour_ones = 9;
@@ -458,9 +467,15 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // min_tens = 8;
   // min_ones = 8;
 
+  // hour_tens = 0;
+  // hour_ones = 0;
+  // min_tens = 0;
+  // min_ones = 0;
+  
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];
-  calculate_digit_layouts(bounds, layouts);
+  int digits[4] = {min_ones, min_tens, hour_ones, hour_tens};
+  calculate_digit_layouts(bounds, layouts, digits);
   
   // Calculate scale factors for animation
   float scale_level0 = s_is_animating ? get_digit_scale(0, s_animation_frame) : 1.0f;
@@ -477,7 +492,6 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   colors[2] = s_showing_date && is_pause ? GColorLightGray : GColorWhite;  // hour_ones
   colors[3] = s_showing_date && is_pause ? GColorLightGray : GColorLightGray; // hour_tens
   
-  int digits[4] = {min_ones, min_tens, hour_ones, hour_tens};
   float scales[4] = {scale_level3, scale_level2, scale_level1, scale_level0};
   
   // Draw digits from outermost to innermost

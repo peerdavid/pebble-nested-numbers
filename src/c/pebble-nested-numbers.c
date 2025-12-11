@@ -9,9 +9,15 @@ static int s_animation_frame = 0;
 static bool s_is_animating = false;
 static bool s_grow_only = false;  // If true, skip shrink phase
 
-// Date display state
-static bool s_showing_date = false;
-static AppTimer *s_date_timer = NULL;
+// Display modes
+typedef enum {
+  DISPLAY_TIME,
+  DISPLAY_DATE,
+  DISPLAY_BATTERY_STEPS
+} DisplayMode;
+
+static DisplayMode s_display_mode = DISPLAY_TIME;
+static AppTimer *s_return_to_time_timer = NULL;
 
 // Store the time to display during animation
 static int s_stored_hour_tens = 0;
@@ -413,7 +419,7 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   
   int digit_0, digit_1, digit_2, digit_3;
   
-  if (s_showing_date) {
+  if (s_display_mode == DISPLAY_DATE) {
     // Show date: month and day (MM-DD)
     int month = tick_time->tm_mon + 1;  // tm_mon is 0-11
     int day = tick_time->tm_mday;
@@ -422,6 +428,21 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
     digit_1 = month % 10;
     digit_2 = day / 10;
     digit_3 = day % 10;
+  } else if (s_display_mode == DISPLAY_BATTERY_STEPS) {
+    // Show battery (inner, max 99) and steps in thousands (outer)
+    BatteryChargeState battery = battery_state_service_peek();
+    int battery_percent = battery.charge_percent;
+    if (battery_percent > 99) battery_percent = 99;
+    
+    HealthValue steps = health_service_sum_today(HealthMetricStepCount);
+    // steps = 12000; // Testing
+    int steps_thousands = steps / 1000;
+    if (steps_thousands > 99) steps_thousands = 99;
+    
+    digit_0 = steps_thousands / 10;
+    digit_1 = steps_thousands % 10;
+    digit_2 = battery_percent / 10;
+    digit_3 = battery_percent % 10;
   } else {
     // Show time: hours and minutes (HH:MM)
     int hours = tick_time->tm_hour;
@@ -440,7 +461,6 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   int min_ones = digit_3;
 
   bool is_shrinking = (s_animation_frame < ANIMATION_FRAMES_SHRINK);
-  bool is_pause = (s_animation_frame == 0);
   
   // During animation, use stored old time during shrink, new time during grow
   if (is_shrinking && s_is_animating && !s_grow_only) {
@@ -487,12 +507,24 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   
   // Draw from largest to smallest (level 0 = outermost, level 3 = innermost)
   // Digit mapping: level 0 = min_ones, level 1 = min_tens, level 2 = hour_ones, level 3 = hour_tens
-  // Colors are white gray white gray for time and gray gray white white for date
+  // Colors: time (white gray white gray), date (white white gray gray), battery/steps (gray gray white white)
   GColor colors[4];
-  colors[0] = s_showing_date && is_pause ? GColorWhite : GColorWhite;      // min_ones
-  colors[1] = s_showing_date && is_pause ? GColorWhite : GColorLightGray;  // min_tens
-  colors[2] = s_showing_date && is_pause ? GColorLightGray : GColorWhite;  // hour_ones
-  colors[3] = s_showing_date && is_pause ? GColorLightGray : GColorLightGray; // hour_tens
+  if (s_display_mode == DISPLAY_DATE) {
+    colors[0] = GColorWhite;      // day ones
+    colors[1] = GColorWhite;      // day tens
+    colors[2] = GColorLightGray;  // month ones
+    colors[3] = GColorLightGray;  // month tens
+  } else if (s_display_mode == DISPLAY_BATTERY_STEPS) {
+    colors[0] = GColorLightGray;  // steps thousands ones
+    colors[1] = GColorLightGray;  // steps thousands tens
+    colors[2] = GColorWhite;      // battery ones
+    colors[3] = GColorWhite;      // battery tens
+  } else {
+    colors[0] = GColorWhite;      // min_ones
+    colors[1] = GColorLightGray;  // min_tens
+    colors[2] = GColorWhite;      // hour_ones
+    colors[3] = GColorLightGray;  // hour_tens
+  }
   
   float scales[4] = {scale_level3, scale_level2, scale_level1, scale_level0};
   
@@ -545,37 +577,60 @@ static void start_animation(bool grow_only) {
   layer_mark_dirty(s_display_layer);
 }
 
-static void date_timer_callback(void *data) {
-  // Switch back to time display
-  s_date_timer = NULL;
+static void return_to_time_callback(void *data) {
+  // Switch back to time display from date or battery/steps
+  s_return_to_time_timer = NULL;
   
-  // Store current date values for animation
+  // Store current display values for animation
   time_t temp = time(NULL);
   struct tm *tick_time = localtime(&temp);
-  int month = tick_time->tm_mon + 1;
-  int day = tick_time->tm_mday;
   
-  s_stored_hour_tens = month / 10;
-  s_stored_hour_ones = month % 10;
-  s_stored_min_tens = day / 10;
-  s_stored_min_ones = day % 10;
+  if (s_display_mode == DISPLAY_DATE) {
+    int month = tick_time->tm_mon + 1;
+    int day = tick_time->tm_mday;
+    
+    s_stored_hour_tens = month / 10;
+    s_stored_hour_ones = month % 10;
+    s_stored_min_tens = day / 10;
+    s_stored_min_ones = day % 10;
+  } else if (s_display_mode == DISPLAY_BATTERY_STEPS) {
+    BatteryChargeState battery = battery_state_service_peek();
+    int battery_percent = battery.charge_percent;
+    if (battery_percent > 99) battery_percent = 99;
+    
+    HealthValue steps = health_service_sum_today(HealthMetricStepCount);
+    int steps_thousands = steps / 1000;
+    if (steps_thousands > 99) steps_thousands = 99;
+    
+    s_stored_hour_tens = steps_thousands / 10;
+    s_stored_hour_ones = steps_thousands % 10;
+    s_stored_min_tens = battery_percent / 10;
+    s_stored_min_ones = battery_percent % 10;
+  }
   
-  s_showing_date = false;
-  start_animation(false);  // Animate from date to time
+  s_display_mode = DISPLAY_TIME;
+  start_animation(false);  // Animate back to time
 }
 
 static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
-  // Handle flick gesture
-  if (s_showing_date) {
-    // Already showing date, cancel timer and extend display
-    if (s_date_timer) {
-      app_timer_cancel(s_date_timer);
-    }
-    s_date_timer = app_timer_register(5000, date_timer_callback, NULL);
-  } else {
-    // Store current time values for animation
-    time_t temp = time(NULL);
-    struct tm *tick_time = localtime(&temp);
+  // When we already animate, ignore new flicks and finish this first
+  if(s_is_animating){
+    return;
+  }
+
+  // Handle flick gesture - cycle through display modes
+  // Cancel existing return-to-time timer
+  if (s_return_to_time_timer) {
+    app_timer_cancel(s_return_to_time_timer);
+    s_return_to_time_timer = NULL;
+  }
+  
+  time_t temp = time(NULL);
+  struct tm *tick_time = localtime(&temp);
+  
+  // Store current display values for animation
+  if (s_display_mode == DISPLAY_TIME) {
+    // Store time values
     int hours = tick_time->tm_hour;
     int minutes = tick_time->tm_min;
     
@@ -584,17 +639,50 @@ static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
     s_stored_min_tens = minutes / 10;
     s_stored_min_ones = minutes % 10;
     
-    s_showing_date = true;
-    start_animation(false);  // Animate from time to date
+    // Switch to date
+    s_display_mode = DISPLAY_DATE;
+  } else if (s_display_mode == DISPLAY_DATE) {
+    // Store date values
+    int month = tick_time->tm_mon + 1;
+    int day = tick_time->tm_mday;
     
-    // Set timer to switch back to time after 5 seconds
-    s_date_timer = app_timer_register(5000, date_timer_callback, NULL);
+    s_stored_hour_tens = month / 10;
+    s_stored_hour_ones = month % 10;
+    s_stored_min_tens = day / 10;
+    s_stored_min_ones = day % 10;
+    
+    // Switch to battery/steps
+    s_display_mode = DISPLAY_BATTERY_STEPS;
+  } else {
+    // Store battery/steps values
+    BatteryChargeState battery = battery_state_service_peek();
+    int battery_percent = battery.charge_percent;
+    if (battery_percent > 99) battery_percent = 99;
+    
+    HealthValue steps = health_service_sum_today(HealthMetricStepCount);
+    int steps_thousands = steps / 1000;
+    if (steps_thousands > 99) steps_thousands = 99;
+    
+    s_stored_hour_tens = steps_thousands / 10;
+    s_stored_hour_ones = steps_thousands % 10;
+    s_stored_min_tens = battery_percent / 10;
+    s_stored_min_ones = battery_percent % 10;
+    
+    // Switch back to time (no timer needed since we're at time)
+    s_display_mode = DISPLAY_TIME;
+  }
+  
+  start_animation(false);
+  
+  // Set timer to return to time after 5 seconds (except if already at time)
+  if (s_display_mode != DISPLAY_TIME) {
+    s_return_to_time_timer = app_timer_register(5000, return_to_time_callback, NULL);
   }
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   // Start animation at the beginning of each minute (only when showing time)
-  if (tick_time->tm_sec == 0 && !s_showing_date) {
+  if (tick_time->tm_sec == 0 && s_display_mode == DISPLAY_TIME) {
     // Store the OLD time (which is the previous minute)
     // Since it just turned to a new minute, we need to calculate the previous minute
     int current_minutes = tick_time->tm_min;
@@ -663,10 +751,10 @@ static void deinit(void) {
     s_animation_timer = NULL;
   }
   
-  // Cancel date timer if running
-  if (s_date_timer) {
-    app_timer_cancel(s_date_timer);
-    s_date_timer = NULL;
+  // Cancel return-to-time timer if running
+  if (s_return_to_time_timer) {
+    app_timer_cancel(s_return_to_time_timer);
+    s_return_to_time_timer = NULL;
   }
   
   // Unsubscribe from services

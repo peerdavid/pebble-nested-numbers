@@ -357,14 +357,12 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
     current->center.y = body_top + body_height / 2 - (parent->thickness) / 2 - 1;
     
     // Scale current digit to fit within parent's body using NESTING_SCALE
-    current->height = (body_height * NESTING_SCALE_H) - 15;
+    current->height = (body_height * NESTING_SCALE_H) - level * 2 - 12;
     // Width scales proportionally from parent's width, not from height
-    current->width = (parent->width * NESTING_SCALE_W) - 15;
+    current->width = (parent->width * NESTING_SCALE_W) - level * 2 - 12;
     
-    // Thickness decreases with each level
-    current->thickness = 6 - level;
-    current->thickness = current->thickness < 4 ? 4 : current->thickness;
-
+    // For now lets fix the thickness
+    current->thickness = 6;
     
     // Set distortion based on level
     if (level == 1) current->distortion = DISTORTION_LEVEL_2;
@@ -452,21 +450,25 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
     min_ones = s_stored_min_ones;
   }
   
+  // Screenshot 1
   // hour_tens = 2;
   // hour_ones = 3;
   // min_tens = 3;
   // min_ones = 8;
 
+  // Screenshot 2
   // hour_tens = 1;
   // hour_ones = 9;
   // min_tens = 1;
   // min_ones = 8;
 
+  // Extrema 1
   // hour_tens = 8;
   // hour_ones = 8;
   // min_tens = 8;
   // min_ones = 8;
 
+  // Extrema 2
   // hour_tens = 0;
   // hour_ones = 0;
   // min_tens = 0;

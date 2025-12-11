@@ -452,10 +452,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
     min_ones = s_stored_min_ones;
   }
   
-  hour_tens = 2;
-  hour_ones = 3;
-  min_tens = 3;
-  min_ones = 8;
+  // hour_tens = 2;
+  // hour_ones = 3;
+  // min_tens = 3;
+  // min_ones = 8;
 
   // hour_tens = 1;
   // hour_ones = 9;

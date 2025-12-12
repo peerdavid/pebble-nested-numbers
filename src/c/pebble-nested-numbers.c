@@ -29,21 +29,12 @@ static int s_stored_min_ones = 0;
 #define ANIMATION_FRAMES_GROW 16
 #define TOTAL_ANIMATION_FRAMES (ANIMATION_FRAMES_SHRINK + ANIMATION_FRAMES_GROW)
 #define ANIMATION_FRAME_DURATION_MS 40
-#define VERT_DISTORTION_FACTOR_R 2
-#define VERT_DISTORTION_FACTOR_L 2
 
 // Distortion constants - middle segment position as fraction from top
-#define DISTORTION_LEVEL_1 0.35f  // Outermost digit (35% from top)
-#define DISTORTION_LEVEL_2 0.30f  // Second level (30% from top)
-#define DISTORTION_LEVEL_3 0.25f  // Third level (25% from top)
-#define DISTORTION_LEVEL_4 0.50f  // Innermost digit (no distortion)
-
-// Nested digit sizing ratios
-#define MARGIN_HORIZONTAL 6   // Horizontal margin from screen edge
-#define MARGIN_VERTICAL 10    // Vertical margin from screen edge
-#define NESTING_SCALE_H 0.85f   // Each digit fits in 85% (body portion) of parent
-#define NESTING_SCALE_W 0.9f   // Each digit fits in 85% (body portion) of parent
-
+#define DISTORTION 0.16f  // Outermost digit (35% from top)
+#define THICKNESS 7
+#define LEVEL_REDUCTION_H 12
+#define LEVEL_REDUCTION_W 8
 
 // Segment indices: 0=top, 1=top-right, 2=bottom-right, 3=bottom, 4=bottom-left, 5=top-left, 6=middle
 static const bool DIGIT_SEGMENTS[10][7] = {
@@ -112,12 +103,7 @@ static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_typ
   // This means the middle segment is only 15% down from top, creating a compressed top and huge bottom
   
   int segment_width = digit_width;
-  
-  // Calculate the actual center position (15% from top)
-  // If digit spans from (center.y - h/2) to (center.y + h/2)
-  // The middle should be at: top + 0.15 * height = (center.y - h/2) + 0.15*h
-  // Which is: center.y - h/2 + 0.15*h = center.y + h*(-0.5 + 0.15) = center.y - 0.35*h
-  int distorted_center_y = center.y - digit_height * distortion;
+  int distorted_y = center.y - digit_height / 2 + digit_height * distortion;
   
   GPathInfo segment_path_info;
   GPoint points[4];
@@ -136,26 +122,26 @@ static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_typ
     case 1: // Top-right vertical (from top to middle)
       {
         int top_y = center.y - digit_height / 2;
-        int mid_y = distorted_center_y;
+        int mid_y = distorted_y;
         int x = center.x + segment_width / 2;
         
-        points[0] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, top_y);
+        points[0] = GPoint(x - segment_thickness, top_y);
         points[1] = GPoint(x, top_y);
         points[2] = GPoint(x, mid_y);
-        points[3] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, mid_y);
+        points[3] = GPoint(x - segment_thickness, mid_y);
       }
       break;
       
     case 2: // Bottom-right vertical (from middle to bottom)
       {
-        int mid_y = distorted_center_y;
+        int mid_y = distorted_y;
         int bottom_y = center.y + digit_height / 2;
         int x = center.x + segment_width / 2;
         
-        points[0] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, mid_y);
+        points[0] = GPoint(x - segment_thickness, mid_y);
         points[1] = GPoint(x, mid_y);
         points[2] = GPoint(x, bottom_y);
-        points[3] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, bottom_y);
+        points[3] = GPoint(x - segment_thickness, bottom_y);
       }
       break;
       
@@ -171,13 +157,13 @@ static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_typ
       
     case 4: // Bottom-left vertical (from middle to bottom)
       {
-        int mid_y = distorted_center_y;
+        int mid_y = distorted_y;
         int bottom_y = center.y + digit_height / 2;
         int x = center.x - segment_width / 2;
         
         points[0] = GPoint(x, mid_y);
-        points[1] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, mid_y);
-        points[2] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, bottom_y);
+        points[1] = GPoint(x + segment_thickness, mid_y);
+        points[2] = GPoint(x + segment_thickness, bottom_y);
         points[3] = GPoint(x, bottom_y);
       }
       break;
@@ -185,23 +171,23 @@ static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_typ
     case 5: // Top-left vertical (from top to middle)
       {
         int top_y = center.y - digit_height / 2;
-        int mid_y = distorted_center_y;
+        int mid_y = distorted_y;
         int x = center.x - segment_width / 2;
         
         points[0] = GPoint(x, top_y);
-        points[1] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, top_y);
-        points[2] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, mid_y);
+        points[1] = GPoint(x + segment_thickness, top_y);
+        points[2] = GPoint(x + segment_thickness, mid_y);
         points[3] = GPoint(x, mid_y);
       }
       break;
       
     case 6: // Middle horizontal (at the distorted center - 15% from top!)
       {
-        int y = distorted_center_y;
-        points[0] = GPoint(center.x - segment_width / 2, y - segment_thickness);
-        points[1] = GPoint(center.x + segment_width / 2, y - segment_thickness);
-        points[2] = GPoint(center.x + segment_width / 2, y);
-        points[3] = GPoint(center.x - segment_width / 2, y);
+        int y = distorted_y;
+        points[0] = GPoint(center.x - segment_width / 2, y - segment_thickness / 2);
+        points[1] = GPoint(center.x + segment_width / 2, y - segment_thickness / 2);
+        points[2] = GPoint(center.x + segment_width / 2, y + segment_thickness / 2);
+        points[3] = GPoint(center.x - segment_width / 2, y + segment_thickness / 2);
       }
       break;
   }
@@ -230,10 +216,10 @@ static void draw_normal_segment(GContext *ctx, GPoint center, int segment_type, 
     case 0: // Top horizontal
       {
         int y = center.y - digit_height / 2;
-        points[0] = GPoint(center.x - segment_width / 2, y+2);
-        points[1] = GPoint(center.x + segment_width / 2, y+2);
-        points[2] = GPoint(center.x + segment_width / 2, y + segment_thickness+2);
-        points[3] = GPoint(center.x - segment_width / 2, y + segment_thickness+2);
+        points[0] = GPoint(center.x - segment_width / 2, y);
+        points[1] = GPoint(center.x + segment_width / 2, y);
+        points[2] = GPoint(center.x + segment_width / 2, y + segment_thickness);
+        points[3] = GPoint(center.x - segment_width / 2, y + segment_thickness);
       }
       break;
       
@@ -243,10 +229,10 @@ static void draw_normal_segment(GContext *ctx, GPoint center, int segment_type, 
         int mid_y = center.y;
         int x = center.x + segment_width / 2;
         
-        points[0] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, top_y);
+        points[0] = GPoint(x - segment_thickness, top_y);
         points[1] = GPoint(x, top_y);
         points[2] = GPoint(x, mid_y);
-        points[3] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, mid_y);
+        points[3] = GPoint(x - segment_thickness, mid_y);
       }
       break;
       
@@ -256,10 +242,10 @@ static void draw_normal_segment(GContext *ctx, GPoint center, int segment_type, 
         int bottom_y = center.y + digit_height / 2;
         int x = center.x + segment_width / 2;
         
-        points[0] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, mid_y);
+        points[0] = GPoint(x - segment_thickness, mid_y);
         points[1] = GPoint(x, mid_y);
         points[2] = GPoint(x, bottom_y);
-        points[3] = GPoint(x - segment_thickness - VERT_DISTORTION_FACTOR_R, bottom_y);
+        points[3] = GPoint(x - segment_thickness, bottom_y);
       }
       break;
       
@@ -280,8 +266,8 @@ static void draw_normal_segment(GContext *ctx, GPoint center, int segment_type, 
         int x = center.x - segment_width / 2;
         
         points[0] = GPoint(x, mid_y);
-        points[1] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, mid_y);
-        points[2] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, bottom_y);
+        points[1] = GPoint(x + segment_thickness, mid_y);
+        points[2] = GPoint(x + segment_thickness, bottom_y);
         points[3] = GPoint(x, bottom_y);
       }
       break;
@@ -293,8 +279,8 @@ static void draw_normal_segment(GContext *ctx, GPoint center, int segment_type, 
         int x = center.x - segment_width / 2;
         
         points[0] = GPoint(x, top_y);
-        points[1] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, top_y);
-        points[2] = GPoint(x + segment_thickness + VERT_DISTORTION_FACTOR_L, mid_y);
+        points[1] = GPoint(x + segment_thickness, top_y);
+        points[2] = GPoint(x + segment_thickness, mid_y);
         points[3] = GPoint(x, mid_y);
       }
       break;
@@ -323,57 +309,90 @@ typedef struct {
   GPoint center;
   int width;
   int height;
-  int thickness;
-  float distortion;
 } DigitLayout;
 
 // Calculate nested digit layouts based on screen bounds and distortion
 static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int digits[4]) {
   // Level 0 (outermost): Fill screen without margins
-  layouts[0].width = bounds.size.w;
-  layouts[0].height = bounds.size.h;
-  layouts[0].center = GPoint(bounds.size.w / 2, bounds.size.h / 2);
-  layouts[0].thickness = 6;
-  layouts[0].distortion = DISTORTION_LEVEL_1;
+  layouts[0].width = bounds.size.w - 2;
+  layouts[0].height = bounds.size.h - 2;
+  layouts[0].center = GPoint(bounds.size.w / 2-1, bounds.size.h / 2);
   
   // For each subsequent level, nest within parent's body region
   for (int level = 1; level < 4; level++) {
     DigitLayout *parent = &layouts[level - 1];
     DigitLayout *current = &layouts[level];
-    
-    // Calculate where parent's middle segment is located
-    int parent_middle_y = parent->center.y - parent->height * parent->distortion;
-
-    // Check if parent digit has no middle segment (0, 1, 7)
     int parent_digit = digits[level - 1];
-    bool is_0_1_or_7 = (parent_digit == 0 || parent_digit == 1 || parent_digit == 7);
-    if(is_0_1_or_7){
-      parent_middle_y = parent->center.y - parent->height/2 + parent->thickness; // Move middle_y to just below top segment
-    }
+    int parent_body_height = parent->height * (1.0 - DISTORTION);
     
-    // Calculate parent's body region (from middle segment to bottom)
-    int parent_top = parent->center.y - parent->height / 2;
-    int parent_bottom = parent->center.y + parent->height / 2;
-    int body_top = parent_middle_y - parent->thickness;
-    int body_bottom = parent_bottom + parent->thickness + 3-level;
-    int body_height = body_bottom - body_top;
-    
+    // Compute sizes
+    bool parent_has_middle_segment = (parent_digit == 2 || parent_digit == 3 || parent_digit == 4 || parent_digit == 5 || parent_digit == 6 || parent_digit == 8 || parent_digit == 9);
+    bool parent_has_some_left_segments = (parent_digit == 0 || parent_digit == 2 || parent_digit == 6 || parent_digit == 8);
+    bool parent_has_some_right_segments = (parent_digit == 0 || parent_digit == 1 || parent_digit == 3 || parent_digit == 4 || parent_digit == 5 || parent_digit == 6 || parent_digit == 7 || parent_digit == 8 || parent_digit == 9);
+    bool parent_has_some_bottom_segments = (parent_digit == 0 || parent_digit == 2 || parent_digit == 3 || parent_digit == 5 || parent_digit == 6 || parent_digit == 8);
+    bool parent_has_some_top_segments = (parent_digit == 0 || parent_digit == 7);
+
     // Position current digit in center of parent's body region
     current->center.x = parent->center.x;
-    current->center.y = body_top + body_height / 2 - (parent->thickness) / 2 - 1;
-    
-    // Scale current digit to fit within parent's body using NESTING_SCALE
-    current->height = (body_height * NESTING_SCALE_H) - level * 2 - 12;
-    // Width scales proportionally from parent's width, not from height
-    current->width = (parent->width * NESTING_SCALE_W) - level * 2 - 12;
-    
-    // For now lets fix the thickness
-    current->thickness = 6;
-    
-    // Set distortion based on level
-    if (level == 1) current->distortion = DISTORTION_LEVEL_2;
-    else if (level == 2) current->distortion = DISTORTION_LEVEL_3;
-    else current->distortion = DISTORTION_LEVEL_4; // No distortion for innermost
+    current->center.y = parent->center.y;
+    current->height = parent->height; // parent->height;
+    current->width = parent->width;
+
+    bool reduced_height = false;
+    bool reduced_width = false;
+
+    // In case we have a middle segment, we need to shift down a bit to accommodate it
+    if (parent_has_middle_segment) {
+      current->center.y += (parent->height * DISTORTION) / 2;
+      current->center.y += 3 * THICKNESS / 4;
+      current->height -= (parent->height * DISTORTION) + THICKNESS - 2;
+      reduced_height = true;
+    }
+
+    // In case we have a left segment, shift
+    if (parent_has_some_left_segments) {
+      current->center.x += THICKNESS / 2;
+      current->width -= THICKNESS;
+      reduced_width = true;
+    } else {
+      current->center.x -= THICKNESS / 2;
+    }
+
+    // In case we have a right segment, shift
+    if (parent_has_some_right_segments) {
+      current->center.x -= THICKNESS / 2;
+      current->width -= THICKNESS;
+      reduced_width = true;
+    } else {
+      current->center.x += THICKNESS / 2;
+    }
+
+    // In case we have a top segment, shift
+    if (parent_has_some_top_segments) {
+      current->center.y += THICKNESS / 2;
+      current->height -= THICKNESS;
+      reduced_height = true;
+    } else {
+      current->center.y -= THICKNESS / 2;
+    }
+
+    // In case we have a bottom segment, shift
+    if (parent_has_some_bottom_segments) {
+      current->center.y -= THICKNESS / 2;
+      current->height -= THICKNESS;
+      reduced_height = true;
+    } else {
+      current->center.y += THICKNESS / 2;
+    }
+
+    if (reduced_height) {
+      current->height -= LEVEL_REDUCTION_H;
+    }
+
+    if (reduced_width) {
+      current->width -= LEVEL_REDUCTION_W;
+    }
+
   }
 }
 
@@ -470,17 +489,11 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
     min_ones = s_stored_min_ones;
   }
   
-  // Screenshot 1
-  // hour_tens = 2;
-  // hour_ones = 3;
-  // min_tens = 3;
-  // min_ones = 8;
-
-  // Screenshot 2
-  // hour_tens = 1;
-  // hour_ones = 9;
-  // min_tens = 1;
-  // min_ones = 8;
+  // Screenshot
+  // hour_tens = 0;
+  // hour_ones = 7;
+  // min_tens = 6;
+  // min_ones = 3;
 
   // Extrema 1
   // hour_tens = 8;
@@ -493,6 +506,23 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // hour_ones = 0;
   // min_tens = 0;
   // min_ones = 0;
+
+  // Extrema 3
+  // hour_tens = 1;
+  // hour_ones = 1;
+  // min_tens = 1;
+  // min_ones = 1;
+
+  // Extrema 4
+  // hour_tens = 2;
+  // hour_ones = 2;
+  // min_tens = 2;
+  // min_ones = 2;
+
+  // hour_tens = 1;
+  // hour_ones = 4;
+  // min_tens = 2;
+  // min_ones = 9;
   
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];
@@ -533,12 +563,12 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
     if (i < 3) {
       // First three levels use distortion
       draw_distorted_digit(ctx, digits[i], layouts[i].center, layouts[i].width, 
-                          layouts[i].height, layouts[i].thickness, colors[i], 
-                          scales[i], layouts[i].distortion);
+                          layouts[i].height, THICKNESS-i, colors[i], 
+                          scales[i], DISTORTION);
     } else {
       // Innermost level (hour_tens) has no distortion
       draw_normal_digit(ctx, digits[i], layouts[i].center, layouts[i].width, 
-                       layouts[i].height, layouts[i].thickness, colors[i], scales[i]);
+                       layouts[i].height, THICKNESS-2, colors[i], scales[i]);
     }
   }
 }

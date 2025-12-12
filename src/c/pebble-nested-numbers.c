@@ -32,7 +32,7 @@ static int s_stored_min_ones = 0;
 
 // Distortion constants - middle segment position as fraction from top
 #define DISTORTION 0.16f  // Outermost digit (35% from top)
-#define THICKNESS 7
+#define THICKNESS 8
 #define LEVEL_REDUCTION_H 12
 #define LEVEL_REDUCTION_W 8
 
@@ -225,7 +225,7 @@ static void draw_normal_segment(GContext *ctx, GPoint center, int segment_type, 
       
     case 1: // Top-right vertical
       {
-        int top_y = center.y - digit_height / 2 + 2;
+        int top_y = center.y - digit_height / 2;
         int mid_y = center.y;
         int x = center.x + segment_width / 2;
         
@@ -490,16 +490,16 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   }
   
   // Screenshot
-  // hour_tens = 0;
-  // hour_ones = 7;
-  // min_tens = 6;
-  // min_ones = 3;
+  // hour_tens = 2;
+  // hour_ones = 1;
+  // min_tens = 3;
+  // min_ones = 7;
 
   // Extrema 1
-  // hour_tens = 8;
-  // hour_ones = 8;
-  // min_tens = 8;
-  // min_ones = 8;
+  // hour_tens = 2;
+  // hour_ones = 7;
+  // min_tens = 1;
+  // min_ones = 1;
 
   // Extrema 2
   // hour_tens = 0;
@@ -519,10 +519,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // min_tens = 2;
   // min_ones = 2;
 
-  // hour_tens = 1;
-  // hour_ones = 4;
-  // min_tens = 2;
-  // min_ones = 9;
+  // hour_tens = 8;
+  // hour_ones = 8;
+  // min_tens = 8;
+  // min_ones = 8;
   
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];
@@ -557,18 +557,39 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   }
   
   float scales[4] = {scale_level3, scale_level2, scale_level1, scale_level0};
+
+  int num_middle_segments = 0;
   
   // Draw digits from outermost to innermost
   for (int i = 0; i < 4; i++) {
+
+    int digit = digits[i];
+    int thickness = THICKNESS;
+    int height = layouts[i].height;
+
+    bool has_middle_segment = !(digit == 0 || digit == 1 || digit == 7);
+    if(has_middle_segment){
+      thickness -= num_middle_segments*num_middle_segments;
+    } else {
+      int tmp = num_middle_segments - 1;
+      tmp = tmp < 0 ? 0 : tmp;
+      thickness -= tmp*tmp;
+    }
+
+    // Prepare for next digit
+    num_middle_segments += has_middle_segment ? 1 : 0;
+
     if (i < 3) {
       // First three levels use distortion
       draw_distorted_digit(ctx, digits[i], layouts[i].center, layouts[i].width, 
-                          layouts[i].height, THICKNESS-i, colors[i], 
+                          layouts[i].height, thickness, colors[i], 
                           scales[i], DISTORTION);
     } else {
       // Innermost level (hour_tens) has no distortion
+      // The innermost can be a bit thicker
+      thickness = thickness < THICKNESS - num_middle_segments ? THICKNESS - num_middle_segments : thickness;
       draw_normal_digit(ctx, digits[i], layouts[i].center, layouts[i].width, 
-                       layouts[i].height, THICKNESS-2, colors[i], scales[i]);
+                       layouts[i].height, thickness, colors[i], scales[i]);
     }
   }
 }

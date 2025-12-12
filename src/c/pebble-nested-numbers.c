@@ -356,10 +356,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   }
   
   // Screenshot
-  // hour_tens = 2;
-  // hour_ones = 1;
-  // min_tens = 3;
-  // min_ones = 7;
+  // hour_tens = 0;
+  // hour_ones = 7;
+  // min_tens = 6;
+  // min_ones = 3;
 
   // Extrema 1
   // hour_tens = 2;
@@ -385,10 +385,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // min_tens = 2;
   // min_ones = 2;
 
-  hour_tens = 2;
-  hour_ones = 8;
-  min_tens = 8;
-  min_ones = 4;
+  // hour_tens = 2;
+  // hour_ones = 8;
+  // min_tens = 8;
+  // min_ones = 4;
   
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];

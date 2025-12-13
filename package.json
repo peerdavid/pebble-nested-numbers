@@ -1,7 +1,7 @@
 {
   "name": "pebble-nested-numbers",
   "author": "David Peer",
-  "version": "2.3",
+  "version": "2.4",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {},

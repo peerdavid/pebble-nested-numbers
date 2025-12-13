@@ -235,16 +235,17 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
 
     // First adapt the height correctly
     if(parent_digit == 2 || parent_digit == 3 || parent_digit == 5 || parent_digit == 6 || parent_digit == 8){
-      current->center.y += (parent->height * DISTORTION) / 2 - parent->thickness / 2;
+      current->center.y += (parent->height * DISTORTION) / 2;
       current->height -= (parent->height * DISTORTION) / 2 + parent->thickness*3;
       current->height -= MARGIN_H;
-      current->center.y += parent->thickness / 4;
+      // current->center.y += parent->thickness / 4;
       current->thickness -= 2; // thinner for inner digits
     } else if(parent_digit == 9 || parent_digit == 4){
-      current->center.y += (parent->height * DISTORTION) - parent->thickness;
-      current->height -= (parent->height * DISTORTION) / 2 + parent->thickness*2;
-      current->height -= MARGIN_H / 2;
-      current->center.y += parent->thickness / 4;
+      current->center.y += (parent->height * DISTORTION) / 2;
+      current->center.y += MARGIN_H / 2;
+      current->height -= (parent->height * DISTORTION);
+      current->height -= MARGIN_H;
+      // current->center.y += parent->thickness / 4;
       current->thickness -= 1; // thinner for inner digits
     } else if(parent_digit == 0){
       current->height -= parent->thickness*2;
@@ -391,9 +392,9 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // min_ones = 2;
 
   // hour_tens = 8;
-  // hour_ones = 1;
-  // min_tens = 3;
-  // min_ones = 4;
+  // hour_ones = 8;
+  // min_tens = 8;
+  // min_ones = 8;
   
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];

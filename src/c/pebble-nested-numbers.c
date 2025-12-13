@@ -261,7 +261,7 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
       current->center.y += MARGIN_H / 4;
     }
 
-    int min_thickness = level < 3 ? 4 : 5;
+    int min_thickness = level < 3 ? 4 : 6;
     current->thickness = current->thickness < min_thickness ? min_thickness : current->thickness;
 
     // Now adapt the width correctly
@@ -392,10 +392,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // min_tens = 2;
   // min_ones = 2;
 
-  // hour_tens = 0;
-  // hour_ones = 7;
-  // min_tens = 0;
-  // min_ones = 7;
+  // hour_tens = 2;
+  // hour_ones = 0;
+  // min_tens = 1;
+  // min_ones = 4;
 
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];

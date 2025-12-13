@@ -224,6 +224,7 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
     DigitLayout *parent = &layouts[level - 1];
     DigitLayout *current = &layouts[level];
     int parent_digit = digits[level - 1];
+    int current_digit = digits[level];
     int parent_body_height = parent->height * (1.0 - DISTORTION);
 
     // Position current digit in center of parent's body region
@@ -242,13 +243,13 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
       current->center.y -= parent->thickness / 2;
       current->height -= MARGIN_H;
       
-      current->thickness -= 2; // thinner for inner digits
+      current->thickness -= 1;
     } else if(parent_digit == 9 || parent_digit == 4){
       current->center.y += (parent->height - parent_body_height) / 2;
       current->height = parent_body_height;
       current->height -= MARGIN_H / 2;
       current->center.y += MARGIN_H / 4;
-      current->thickness -= 1; // thinner for inner digits
+      current->thickness -= 1;
     } else if(parent_digit == 0){
       current->height -= parent->thickness*2;
       current->height -= MARGIN_H;
@@ -260,6 +261,11 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
       current->height -= MARGIN_H / 2;
       current->center.y += MARGIN_H / 4;
     }
+
+    // In case we have to draw a bold digit, ensure smaller thickness
+    if(current_digit == 2 || current_digit == 3 || current_digit == 5 || current_digit == 6 || current_digit == 8){
+        current->thickness -= 1;  
+      }
 
     int min_thickness = level < 3 ? 4 : 6;
     current->thickness = current->thickness < min_thickness ? min_thickness : current->thickness;
@@ -393,9 +399,9 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // min_ones = 2;
 
   // hour_tens = 2;
-  // hour_ones = 0;
+  // hour_ones = 2;
   // min_tens = 1;
-  // min_ones = 4;
+  // min_ones = 2;
 
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];

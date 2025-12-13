@@ -58,12 +58,12 @@ static float get_digit_scale(int level, int animation_frame) {
     // Skip shrink phase, go straight to growing
     animation_frame += ANIMATION_FRAMES_SHRINK;
   }
-  
+
   if (animation_frame < ANIMATION_FRAMES_SHRINK) {
     // Shrinking phase: innermost (0) shrinks first, outermost (3) shrinks last
     int start_frame = level * 2;  // Stagger the shrink
     int end_frame = start_frame + ANIMATION_FRAMES_SHRINK / 2;
-    
+
     if (animation_frame < start_frame) {
       return 1.0f;  // Not started shrinking yet
     } else if (animation_frame >= end_frame) {
@@ -79,7 +79,7 @@ static float get_digit_scale(int level, int animation_frame) {
     int reversed_level = 3 - level;  // Reverse the order for growing
     int start_frame = reversed_level * 2;
     int end_frame = start_frame + ANIMATION_FRAMES_GROW / 2;
-    
+
     if (grow_frame < start_frame) {
       return 0.0f;  // Not started growing yet
     } else if (grow_frame >= end_frame) {
@@ -98,16 +98,16 @@ static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_typ
   digit_width *= scale;
   digit_height *= scale;
   segment_thickness *= scale;
-  
+
   // The "center" point is at 15% from top of the digit
   // This means the middle segment is only 15% down from top, creating a compressed top and huge bottom
-  
+
   int segment_width = digit_width;
   int distorted_y = center.y - digit_height / 2 + digit_height * distortion;
-  
+
   GPathInfo segment_path_info;
   GPoint points[4];
-  
+
   switch(segment_type) {
     case 0: // Top horizontal
       {
@@ -118,33 +118,33 @@ static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_typ
         points[3] = GPoint(center.x - segment_width / 2, y + segment_thickness);
       }
       break;
-      
+
     case 1: // Top-right vertical (from top to middle)
       {
         int top_y = center.y - digit_height / 2;
         int mid_y = distorted_y;
         int x = center.x + segment_width / 2;
-        
+
         points[0] = GPoint(x - segment_thickness, top_y);
         points[1] = GPoint(x, top_y);
         points[2] = GPoint(x, mid_y);
         points[3] = GPoint(x - segment_thickness, mid_y);
       }
       break;
-      
+
     case 2: // Bottom-right vertical (from middle to bottom)
       {
         int mid_y = distorted_y;
         int bottom_y = center.y + digit_height / 2;
         int x = center.x + segment_width / 2;
-        
+
         points[0] = GPoint(x - segment_thickness, mid_y);
         points[1] = GPoint(x, mid_y);
         points[2] = GPoint(x, bottom_y);
         points[3] = GPoint(x - segment_thickness, bottom_y);
       }
       break;
-      
+
     case 3: // Bottom horizontal
       {
         int y = center.y + digit_height / 2;
@@ -154,47 +154,47 @@ static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_typ
         points[3] = GPoint(center.x - segment_width / 2, y);
       }
       break;
-      
+
     case 4: // Bottom-left vertical (from middle to bottom)
       {
         int mid_y = distorted_y;
         int bottom_y = center.y + digit_height / 2;
         int x = center.x - segment_width / 2;
-        
+
         points[0] = GPoint(x, mid_y);
         points[1] = GPoint(x + segment_thickness, mid_y);
         points[2] = GPoint(x + segment_thickness, bottom_y);
         points[3] = GPoint(x, bottom_y);
       }
       break;
-      
+
     case 5: // Top-left vertical (from top to middle)
       {
         int top_y = center.y - digit_height / 2;
         int mid_y = distorted_y;
         int x = center.x - segment_width / 2;
-        
+
         points[0] = GPoint(x , top_y);
         points[1] = GPoint(x + segment_thickness, top_y);
         points[2] = GPoint(x + segment_thickness, mid_y);
         points[3] = GPoint(x, mid_y);
       }
       break;
-      
+
     case 6: // Middle horizontal (at the distorted center - 15% from top!)
       {
         int y = distorted_y;
-        points[0] = GPoint(center.x - segment_width / 2, y - segment_thickness / 2);
-        points[1] = GPoint(center.x + segment_width / 2, y - segment_thickness / 2);
-        points[2] = GPoint(center.x + segment_width / 2, y + segment_thickness / 2);
-        points[3] = GPoint(center.x - segment_width / 2, y + segment_thickness / 2);
+        points[0] = GPoint(center.x - segment_width / 2, y - segment_thickness);
+        points[1] = GPoint(center.x + segment_width / 2, y - segment_thickness);
+        points[2] = GPoint(center.x + segment_width / 2, y);
+        points[3] = GPoint(center.x - segment_width / 2, y);
       }
       break;
   }
-  
+
   segment_path_info.num_points = 4;
   segment_path_info.points = points;
-  
+
   GPath *segment_path = gpath_create(&segment_path_info);
   gpath_draw_filled(ctx, segment_path);
   gpath_destroy(segment_path);
@@ -212,8 +212,8 @@ typedef struct {
 // Calculate nested digit layouts based on screen bounds and distortion
 static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int digits[4]) {
   // Level 0 (outermost): Fill screen without margins
-  layouts[0].width = bounds.size.w - 2;
-  layouts[0].height = bounds.size.h - 2;
+  layouts[0].width = bounds.size.w;
+  layouts[0].height = bounds.size.h;
   layouts[0].center = GPoint(bounds.size.w / 2-1, bounds.size.h / 2);
   layouts[0].thickness = THICKNESS;
 
@@ -235,17 +235,19 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
 
     // First adapt the height correctly
     if(parent_digit == 2 || parent_digit == 3 || parent_digit == 5 || parent_digit == 6 || parent_digit == 8){
-      current->center.y += (parent->height * DISTORTION) / 2;
-      current->height -= (parent->height * DISTORTION) / 2 + parent->thickness*3;
+      current->center.y += (parent->height - parent_body_height) / 2; //(parent->height * DISTORTION) / 2;
+      current->height = parent_body_height;
+
+      current->height -= parent->thickness;
+      current->center.y -= parent->thickness / 2;
       current->height -= MARGIN_H;
-      // current->center.y += parent->thickness / 4;
+      
       current->thickness -= 2; // thinner for inner digits
     } else if(parent_digit == 9 || parent_digit == 4){
-      current->center.y += (parent->height * DISTORTION) / 2;
-      current->center.y += MARGIN_H / 2;
-      current->height -= (parent->height * DISTORTION);
-      current->height -= MARGIN_H;
-      // current->center.y += parent->thickness / 4;
+      current->center.y += (parent->height - parent_body_height) / 2;
+      current->height = parent_body_height;
+      current->height -= MARGIN_H / 2;
+      current->center.y += MARGIN_H / 4;
       current->thickness -= 1; // thinner for inner digits
     } else if(parent_digit == 0){
       current->height -= parent->thickness*2;
@@ -256,7 +258,6 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
       current->center.y += parent->thickness/2;
       current->height -= parent->thickness;
       current->height -= MARGIN_H / 2;
-      // current->center.y += MARGIN_H / 4;
       current->center.y += parent->thickness / 2;
     }
 
@@ -285,9 +286,9 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
 static void draw_distorted_digit(GContext *ctx, int digit, GPoint center, int width, int height, int thickness, GColor color, float scale, float distortion) {
   if (digit < 0 || digit > 9) return;
   if (scale <= 0.0f) return;  // Don't draw if scale is 0
-  
+
   graphics_context_set_fill_color(ctx, color);
-  
+
   for (int i = 0; i < 7; i++) {
     if (DIGIT_SEGMENTS[digit][i]) {
       draw_distorted_segment(ctx, center, i, width, height, thickness, scale, distortion);
@@ -299,22 +300,22 @@ static void draw_distorted_digit(GContext *ctx, int digit, GPoint center, int wi
 // Update procedure for the display layer
 static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
-  
+
   // Clear background
   graphics_context_set_fill_color(ctx, GColorBlack);
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
-  
+
   // Get current time
   time_t temp = time(NULL);
   struct tm *tick_time = localtime(&temp);
-  
+
   int digit_0, digit_1, digit_2, digit_3;
-  
+
   if (s_display_mode == DISPLAY_DATE) {
     // Show date: month and day (MM-DD)
     int month = tick_time->tm_mon + 1;  // tm_mon is 0-11
     int day = tick_time->tm_mday;
-    
+
     digit_0 = month / 10;
     digit_1 = month % 10;
     digit_2 = day / 10;
@@ -324,12 +325,12 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
     BatteryChargeState battery = battery_state_service_peek();
     int battery_percent = battery.charge_percent;
     if (battery_percent > 99) battery_percent = 99;
-    
+
     HealthValue steps = health_service_sum_today(HealthMetricStepCount);
     // steps = 12000; // Testing
     int steps_thousands = steps / 1000;
     if (steps_thousands > 99) steps_thousands = 99;
-    
+
     digit_0 = steps_thousands / 10;
     digit_1 = steps_thousands % 10;
     digit_2 = battery_percent / 10;
@@ -338,13 +339,13 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
     // Show time: hours and minutes (HH:MM)
     int hours = tick_time->tm_hour;
     int minutes = tick_time->tm_min;
-    
+
     digit_0 = hours / 10;
     digit_1 = hours % 10;
     digit_2 = minutes / 10;
     digit_3 = minutes % 10;
   }
-  
+
   // Extract digits
   int hour_tens = digit_0;
   int hour_ones = digit_1;
@@ -352,7 +353,7 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   int min_ones = digit_3;
 
   bool is_shrinking = (s_animation_frame < ANIMATION_FRAMES_SHRINK);
-  
+
   // During animation, use stored old time during shrink, new time during grow
   if (is_shrinking && s_is_animating && !s_grow_only) {
     hour_tens = s_stored_hour_tens;
@@ -360,7 +361,7 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
     min_tens = s_stored_min_tens;
     min_ones = s_stored_min_ones;
   }
-  
+
   // Screenshot
   // hour_tens = 0;
   // hour_ones = 7;
@@ -391,22 +392,22 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // min_tens = 2;
   // min_ones = 2;
 
-  // hour_tens = 8;
-  // hour_ones = 8;
-  // min_tens = 8;
-  // min_ones = 8;
-  
+  // hour_tens = 2;
+  // hour_ones = 2;
+  // min_tens = 2;
+  // min_ones = 2;
+
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];
   int digits[4] = {min_ones, min_tens, hour_ones, hour_tens};
   calculate_digit_layouts(bounds, layouts, digits);
-  
+
   // Calculate scale factors for animation
   float scale_level0 = s_is_animating ? get_digit_scale(0, s_animation_frame) : 1.0f;
   float scale_level1 = s_is_animating ? get_digit_scale(1, s_animation_frame) : 1.0f;
   float scale_level2 = s_is_animating ? get_digit_scale(2, s_animation_frame) : 1.0f;
   float scale_level3 = s_is_animating ? get_digit_scale(3, s_animation_frame) : 1.0f;
-  
+
   // Draw from largest to smallest (level 0 = outermost, level 3 = innermost)
   // Digit mapping: level 0 = min_ones, level 1 = min_tens, level 2 = hour_ones, level 3 = hour_tens
   // Colors: time (white gray white gray), date (white white gray gray), battery/steps (gray gray white white)
@@ -427,25 +428,25 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
     colors[2] = GColorWhite;      // hour_ones
     colors[3] = GColorLightGray;  // hour_tens
   }
-  
+
   float scales[4] = {scale_level3, scale_level2, scale_level1, scale_level0};
-  
+
   // Draw digits from outermost to innermost
   for (int i = 0; i < 4; i++) {
 
     float distortion = (i < 3) ? DISTORTION : 0.5f;
     // First three levels use distortion
-    draw_distorted_digit(ctx, digits[i], layouts[i].center, layouts[i].width, 
-                        layouts[i].height, layouts[i].thickness, colors[i], 
+    draw_distorted_digit(ctx, digits[i], layouts[i].center, layouts[i].width,
+                        layouts[i].height, layouts[i].thickness, colors[i],
                         scales[i], distortion);
   }
 }
 
 static void animation_timer_callback(void *data) {
   s_animation_frame++;
-  
+
   int max_frames = s_grow_only ? ANIMATION_FRAMES_GROW : TOTAL_ANIMATION_FRAMES;
-  
+
   if (s_animation_frame >= max_frames) {
     // Animation complete
     s_animation_frame = 0;
@@ -456,21 +457,21 @@ static void animation_timer_callback(void *data) {
     // Schedule next frame
     s_animation_timer = app_timer_register(ANIMATION_FRAME_DURATION_MS, animation_timer_callback, NULL);
   }
-  
+
   // Redraw
   layer_mark_dirty(s_display_layer);
 }
 
 static void start_animation(bool grow_only) {
   if (s_is_animating) return;  // Already animating
-  
+
   s_is_animating = true;
   s_grow_only = grow_only;
   s_animation_frame = 0;
-  
+
   // Start the animation timer
   s_animation_timer = app_timer_register(ANIMATION_FRAME_DURATION_MS, animation_timer_callback, NULL);
-  
+
   // Trigger immediate redraw
   layer_mark_dirty(s_display_layer);
 }
@@ -478,15 +479,15 @@ static void start_animation(bool grow_only) {
 static void return_to_time_callback(void *data) {
   // Switch back to time display from date or battery/steps
   s_return_to_time_timer = NULL;
-  
+
   // Store current display values for animation
   time_t temp = time(NULL);
   struct tm *tick_time = localtime(&temp);
-  
+
   if (s_display_mode == DISPLAY_DATE) {
     int month = tick_time->tm_mon + 1;
     int day = tick_time->tm_mday;
-    
+
     s_stored_hour_tens = month / 10;
     s_stored_hour_ones = month % 10;
     s_stored_min_tens = day / 10;
@@ -495,17 +496,17 @@ static void return_to_time_callback(void *data) {
     BatteryChargeState battery = battery_state_service_peek();
     int battery_percent = battery.charge_percent;
     if (battery_percent > 99) battery_percent = 99;
-    
+
     HealthValue steps = health_service_sum_today(HealthMetricStepCount);
     int steps_thousands = steps / 1000;
     if (steps_thousands > 99) steps_thousands = 99;
-    
+
     s_stored_hour_tens = steps_thousands / 10;
     s_stored_hour_ones = steps_thousands % 10;
     s_stored_min_tens = battery_percent / 10;
     s_stored_min_ones = battery_percent % 10;
   }
-  
+
   s_display_mode = DISPLAY_TIME;
   start_animation(false);  // Animate back to time
 }
@@ -522,33 +523,33 @@ static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
     app_timer_cancel(s_return_to_time_timer);
     s_return_to_time_timer = NULL;
   }
-  
+
   time_t temp = time(NULL);
   struct tm *tick_time = localtime(&temp);
-  
+
   // Store current display values for animation
   if (s_display_mode == DISPLAY_TIME) {
     // Store time values
     int hours = tick_time->tm_hour;
     int minutes = tick_time->tm_min;
-    
+
     s_stored_hour_tens = hours / 10;
     s_stored_hour_ones = hours % 10;
     s_stored_min_tens = minutes / 10;
     s_stored_min_ones = minutes % 10;
-    
+
     // Switch to date
     s_display_mode = DISPLAY_DATE;
   } else if (s_display_mode == DISPLAY_DATE) {
     // Store date values
     int month = tick_time->tm_mon + 1;
     int day = tick_time->tm_mday;
-    
+
     s_stored_hour_tens = month / 10;
     s_stored_hour_ones = month % 10;
     s_stored_min_tens = day / 10;
     s_stored_min_ones = day % 10;
-    
+
     // Switch to battery/steps
     s_display_mode = DISPLAY_BATTERY_STEPS;
   } else {
@@ -556,22 +557,22 @@ static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
     BatteryChargeState battery = battery_state_service_peek();
     int battery_percent = battery.charge_percent;
     if (battery_percent > 99) battery_percent = 99;
-    
+
     HealthValue steps = health_service_sum_today(HealthMetricStepCount);
     int steps_thousands = steps / 1000;
     if (steps_thousands > 99) steps_thousands = 99;
-    
+
     s_stored_hour_tens = steps_thousands / 10;
     s_stored_hour_ones = steps_thousands % 10;
     s_stored_min_tens = battery_percent / 10;
     s_stored_min_ones = battery_percent % 10;
-    
+
     // Switch back to time (no timer needed since we're at time)
     s_display_mode = DISPLAY_TIME;
   }
-  
+
   start_animation(false);
-  
+
   // Set timer to return to time after 5 seconds (except if already at time)
   if (s_display_mode != DISPLAY_TIME) {
     s_return_to_time_timer = app_timer_register(5000, return_to_time_callback, NULL);
@@ -585,11 +586,11 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     // Since it just turned to a new minute, we need to calculate the previous minute
     int current_minutes = tick_time->tm_min;
     int current_hours = tick_time->tm_hour;
-    
+
     // Go back one minute to get the old time
     int old_minutes = current_minutes - 1;
     int old_hours = current_hours;
-    
+
     if (old_minutes < 0) {
       old_minutes = 59;
       old_hours = current_hours - 1;
@@ -597,12 +598,12 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
         old_hours = 23;
       }
     }
-    
+
     s_stored_hour_tens = old_hours / 10;
     s_stored_hour_ones = old_hours % 10;
     s_stored_min_tens = old_minutes / 10;
     s_stored_min_ones = old_minutes % 10;
-    
+
     start_animation(false);  // Full animation (shrink + grow)
   } else {
     layer_mark_dirty(s_display_layer);
@@ -612,12 +613,12 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 static void main_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
-  
+
   // Create display layer
   s_display_layer = layer_create(bounds);
   layer_set_update_proc(s_display_layer, display_layer_update_proc);
   layer_add_child(window_layer, s_display_layer);
-  
+
   // Trigger grow-only animation on startup
   start_animation(true);
 }
@@ -634,10 +635,10 @@ static void init(void) {
     .unload = main_window_unload
   });
   window_stack_push(s_main_window, true);
-  
+
   // Register with TickTimerService - use SECOND_UNIT to detect minute changes
   tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
-  
+
   // Register with AccelTapService for flick gestures
   accel_tap_service_subscribe(accel_tap_handler);
 }
@@ -648,16 +649,16 @@ static void deinit(void) {
     app_timer_cancel(s_animation_timer);
     s_animation_timer = NULL;
   }
-  
+
   // Cancel return-to-time timer if running
   if (s_return_to_time_timer) {
     app_timer_cancel(s_return_to_time_timer);
     s_return_to_time_timer = NULL;
   }
-  
+
   // Unsubscribe from services
   accel_tap_service_unsubscribe();
-  
+
   window_destroy(s_main_window);
 }
 

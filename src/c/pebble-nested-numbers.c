@@ -255,10 +255,10 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
     } else if(parent_digit == 1){
       // NOP as of full height
     } else if (parent_digit == 7){
-      current->center.y += parent->thickness/2;
       current->height -= parent->thickness;
+      current->center.y += parent->thickness/2;
       current->height -= MARGIN_H / 2;
-      current->center.y += parent->thickness / 2;
+      current->center.y += MARGIN_H / 4;
     }
 
     int min_thickness = level < 3 ? 4 : 5;
@@ -392,10 +392,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   // min_tens = 2;
   // min_ones = 2;
 
-  // hour_tens = 2;
-  // hour_ones = 2;
-  // min_tens = 2;
-  // min_ones = 2;
+  // hour_tens = 0;
+  // hour_ones = 7;
+  // min_tens = 0;
+  // min_ones = 7;
 
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];

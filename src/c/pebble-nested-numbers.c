@@ -32,7 +32,8 @@ static int s_stored_min_ones = 0;
 
 // Distortion constants - middle segment position as fraction from top
 #define DISTORTION 0.18f
-#define THICKNESS 8
+#define THICKNESS_MAX 8
+#define THICKNESS_MIN 3
 #define MARGIN_H 14
 #define MARGIN_W 12
 
@@ -209,13 +210,44 @@ typedef struct {
   int thickness;
 } DigitLayout;
 
+
+static int compute_thickness(int full_h, int h, int digit, bool is_innermost){
+  
+  // Now approximate the thickness [4,8] based on the relative height
+  float relative_height = (float)h / (float)full_h;
+
+  // For every x% reduction in height, reduce thickness by 1
+  int reduction = 0;
+  int extra_reduction = 0;
+  if(relative_height >= 0.85f){
+    reduction = 0;
+  } else if (relative_height >= 0.6f) {
+    reduction = 1;
+  } else if (relative_height < 0.6f) {
+    reduction = 2;
+  }
+  int thickness = THICKNESS_MAX - reduction;
+  
+  // If we need thinner segments, reduce further
+  bool needs_thinner_segment = (digit == 2 || digit == 3 || digit == 5 || digit == 6 || digit == 8 || digit == 9);
+  if(!is_innermost && needs_thinner_segment && thickness > THICKNESS_MIN){
+    thickness -= reduction;
+  }
+
+  // Ensure within bounds
+  thickness = thickness < THICKNESS_MIN ? THICKNESS_MIN : thickness;
+  thickness = thickness > THICKNESS_MAX ? THICKNESS_MAX : thickness;
+
+  return thickness;
+}
+
 // Calculate nested digit layouts based on screen bounds and distortion
 static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int digits[4]) {
   // Level 0 (outermost): Fill screen without margins
   layouts[0].width = bounds.size.w;
   layouts[0].height = bounds.size.h;
   layouts[0].center = GPoint(bounds.size.w / 2-1, bounds.size.h / 2);
-  layouts[0].thickness = THICKNESS;
+  layouts[0].thickness = THICKNESS_MAX;
 
   int num_middle_segments = !(digits[0] == 0 || digits[0] == 1 || digits[0] == 7) ? 1 : 0;
 
@@ -232,7 +264,6 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
     current->center.y = parent->center.y;
     current->height = parent->height;
     current->width = parent->width;
-    current->thickness = parent->thickness;
 
     // First adapt the height correctly
     if(parent_digit == 2 || parent_digit == 3 || parent_digit == 5 || parent_digit == 6 || parent_digit == 8){
@@ -243,13 +274,13 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
       current->center.y -= parent->thickness / 2;
       current->height -= MARGIN_H;
       
-      current->thickness -= 1;
+      // current->thickness -= 1;
     } else if(parent_digit == 9 || parent_digit == 4){
       current->center.y += (parent->height - parent_body_height) / 2;
       current->height = parent_body_height;
       current->height -= MARGIN_H / 2;
       current->center.y += MARGIN_H / 4;
-      current->thickness -= 1;
+      // current->thickness -= 1;
     } else if(parent_digit == 0){
       current->height -= parent->thickness*2;
       current->height -= MARGIN_H;
@@ -262,13 +293,9 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
       current->center.y += MARGIN_H / 4;
     }
 
-    // In case we have to draw a bold digit, ensure smaller thickness
-    if(current_digit == 2 || current_digit == 3 || current_digit == 5 || current_digit == 6 || current_digit == 8){
-        current->thickness -= 1;  
-      }
-
-    int min_thickness = level < 3 ? 4 : 6;
-    current->thickness = current->thickness < min_thickness ? min_thickness : current->thickness;
+    // Compute the thickness
+    bool is_innermost = (level == 3);
+    current->thickness = compute_thickness(bounds.size.h, current->height, current_digit, is_innermost);
 
     // Now adapt the width correctly
     if(parent_digit == 0 || parent_digit == 6 || parent_digit == 8){
@@ -370,38 +397,9 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
 
   // Screenshot
   // hour_tens = 0;
-  // hour_ones = 7;
-  // min_tens = 6;
-  // min_ones = 3;
-
-  // Extrema 1
-  // hour_tens = 2;
-  // hour_ones = 7;
-  // min_tens = 1;
-  // min_ones = 1;
-
-  // Extrema 2
-  // hour_tens = 0;
   // hour_ones = 0;
   // min_tens = 0;
   // min_ones = 0;
-
-  // Extrema 3
-  // hour_tens = 1;
-  // hour_ones = 1;
-  // min_tens = 1;
-  // min_ones = 1;
-
-  // Extrema 4
-  // hour_tens = 2;
-  // hour_ones = 2;
-  // min_tens = 2;
-  // min_ones = 2;
-
-  // hour_tens = 2;
-  // hour_ones = 2;
-  // min_tens = 1;
-  // min_ones = 2;
 
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];

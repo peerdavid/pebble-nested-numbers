@@ -406,10 +406,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   }
 
   // Screenshot
-  hour_tens = 0;
-  hour_ones = 8;
-  min_tens = 0;
-  min_ones = 3;
+  // hour_tens = 0;
+  // hour_ones = 8;
+  // min_tens = 0;
+  // min_ones = 3;
 
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];

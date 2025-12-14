@@ -25,10 +25,12 @@ static int s_stored_hour_ones = 0;
 static int s_stored_min_tens = 0;
 static int s_stored_min_ones = 0;
 
-#define ANIMATION_FRAMES_SHRINK 16
-#define ANIMATION_FRAMES_GROW 16
+#define ANIMATION_FRAMES_SHRINK 26
+#define ANIMATION_FRAMES_GROW 26
 #define TOTAL_ANIMATION_FRAMES (ANIMATION_FRAMES_SHRINK + ANIMATION_FRAMES_GROW)
 #define ANIMATION_FRAME_DURATION_MS 40
+static int grow_order[4] = {0, 1, 2, 3};
+static int shrink_order[4] = {0, 1, 2, 3};
 
 // Distortion constants - middle segment position as fraction from top
 #define DISTORTION 0.15f
@@ -61,6 +63,17 @@ static const bool DIGIT_SEGMENTS[10][7] = {
   {1, 1, 1, 0, 0, 1, 1}  // 9
 };
 
+
+// Shuffle an array in place using Fisher-Yates algorithm
+static void shuffle_array(int *array, int size) {
+  for (int i = size - 1; i > 0; i--) {
+    int j = rand() % (i + 1);
+    int temp = array[i];
+    array[i] = array[j];
+    array[j] = temp;
+  }
+}
+
 // Get scale factor for a digit level during animation
 // level: 0=innermost (hour_tens), 1=hour_ones, 2=min_tens, 3=min_ones (outermost)
 // Returns 0.0 to 1.0
@@ -70,10 +83,12 @@ static float get_digit_scale(int level, int animation_frame) {
     animation_frame += ANIMATION_FRAMES_SHRINK;
   }
 
+  // Animation order for growing and shrinking - randomized for fun!
   if (animation_frame < ANIMATION_FRAMES_SHRINK) {
-    // Shrinking phase: innermost (0) shrinks first, outermost (3) shrinks last
-    int start_frame = level * 2;  // Stagger the shrink
-    int end_frame = start_frame + ANIMATION_FRAMES_SHRINK / 2;
+    // Shrinking phase
+    int position = shrink_order[level];
+    int start_frame = position * (ANIMATION_FRAMES_SHRINK / 4);
+    int end_frame = start_frame + (ANIMATION_FRAMES_SHRINK / 4);
 
     if (animation_frame < start_frame) {
       return 1.0f;  // Not started shrinking yet
@@ -85,11 +100,11 @@ static float get_digit_scale(int level, int animation_frame) {
       return 1.0f - progress;
     }
   } else {
-    // Growing phase: outermost (3) grows first, innermost (0) grows last
+    // Growing phase
     int grow_frame = animation_frame - ANIMATION_FRAMES_SHRINK;
-    int reversed_level = 3 - level;  // Reverse the order for growing
-    int start_frame = reversed_level * 2;
-    int end_frame = start_frame + ANIMATION_FRAMES_GROW / 2;
+    int position = grow_order[level];
+    int start_frame = position * (ANIMATION_FRAMES_GROW / 4);
+    int end_frame = start_frame + (ANIMATION_FRAMES_GROW / 4);
 
     if (grow_frame < start_frame) {
       return 0.0f;  // Not started growing yet
@@ -219,7 +234,6 @@ static void set_thickness_and_distortion(int full_h, int digit, DigitLayout* lay
 
   // For every x% reduction in height, reduce thickness by 1
   int reduction = 0;
-  int extra_reduction = 0;
   float distortion = DISTORTION;
   if(relative_height >= 0.85f){
     reduction = 0;
@@ -482,6 +496,10 @@ static void start_animation(bool grow_only) {
 
   // Start the animation timer
   s_animation_timer = app_timer_register(ANIMATION_FRAME_DURATION_MS, animation_timer_callback, NULL);
+
+  // Shuffle animation order for next time
+  shuffle_array(grow_order, 4);
+  shuffle_array(shrink_order, 4);
 
   // Trigger immediate redraw
   layer_mark_dirty(s_display_layer);

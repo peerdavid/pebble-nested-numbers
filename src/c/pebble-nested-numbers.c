@@ -36,7 +36,6 @@ static int shrink_order[4] = {0, 1, 2, 3};
 // Distortion constants - middle segment position as fraction from top
 #define DISTORTION 0.15f
 #define THICKNESS_MAX 8
-#define THICKNESS_MIN 4
 #define MARGIN_H 14
 #define MARGIN_W 12
 
@@ -231,36 +230,31 @@ static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_typ
 }
 
 
-static void set_thickness_and_distortion(int full_h, int digit, DigitLayout* layout){
+static void set_thickness(int full_h, int digit, DigitLayout* layout){
   
-  // Now approximate the thickness [4,8] based on the relative height
+  // Now approximate the thickness based on the relative height
   float relative_height = (float)layout->height / (float)full_h;
-
-  // For every x% reduction in height, reduce thickness by 1
-  int reduction = 0;
-  float distortion = DISTORTION;
-  if (relative_height < 0.6f) {
-    reduction = 1;
-    distortion += 0.04f;
-  }
-  if (relative_height < 0.5f) {
-    distortion += 0.04f;
-  }
-  int thickness = THICKNESS_MAX - reduction;
   
   // If we need thinner segments, reduce further
-  bool needs_thinner_segment = (digit == 4 || digit == 2 || digit == 3 || digit == 5 || digit == 6 || digit == 8 || digit == 9);
-  if(needs_thinner_segment && thickness > THICKNESS_MIN){
+  int thickness = THICKNESS_MAX;
+  if (relative_height < 0.66f) {
     thickness -= 1;
-    distortion += 0.05f;
+  }
+  if (relative_height < 0.33f) {
+    thickness -= 1;
   }
 
-  // Ensure within bounds
-  thickness = thickness < THICKNESS_MIN ? THICKNESS_MIN : thickness;
-  thickness = thickness > THICKNESS_MAX ? THICKNESS_MAX : thickness;
+  // Special chars need to be a bit thinner to keep height for the last digit
+  bool needs_thinner_segment = (digit == 4 || digit == 2 || digit == 3 || digit == 5 || digit == 6 || digit == 8 || digit == 9);
+  if(needs_thinner_segment){
+    thickness -= 1;
+  }
 
   layout->thickness = thickness;
-  layout->distortion = distortion;
+}
+
+static void set_distortion(DigitLayout* layout){
+  layout->distortion = (float)layout->thickness * 3.5 / (float)layout->height;
 }
 
 // Calculate nested digit layouts based on screen bounds and distortion
@@ -270,7 +264,7 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
   layouts[0].height = bounds.size.h;
   layouts[0].center = GPoint(bounds.size.w / 2-1, bounds.size.h / 2);
   layouts[0].thickness = THICKNESS_MAX;
-  layouts[0].distortion = DISTORTION;
+  set_distortion(&layouts[0]);
 
   int num_middle_segments = !(digits[0] == 0 || digits[0] == 1 || digits[0] == 7) ? 1 : 0;
 
@@ -318,7 +312,9 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
     }
 
     // Compute the thickness
-    set_thickness_and_distortion(bounds.size.h, current_digit, current);
+    set_thickness(bounds.size.h, current_digit, current);
+    set_distortion(current);
+
     if(level == 3){
       current->distortion = 0.5f; // Innermost digit has no distortion
     }
@@ -422,10 +418,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   }
 
   // Screenshot
-  // hour_tens = 2;
+  // hour_tens = 8;
   // hour_ones = 6;
-  // min_tens = 2;
-  // min_ones = 7;
+  // min_tens = 8;
+  // min_ones = 8;
 
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];

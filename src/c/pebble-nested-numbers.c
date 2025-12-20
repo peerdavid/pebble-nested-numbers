@@ -17,6 +17,7 @@ typedef enum {
 } DisplayMode;
 
 static DisplayMode s_display_mode = DISPLAY_TIME;
+static DisplayMode s_pending_display_mode = DISPLAY_TIME;
 static AppTimer *s_return_to_time_timer = NULL;
 
 // Store the time to display during animation
@@ -210,6 +211,9 @@ static void draw_distorted_segment(GContext *ctx, GPoint center, int segment_typ
     case 6: // Middle horizontal (at the distorted center - 15% from top!)
       {
         int y = distorted_y;
+        if (distortion == 0.5f) { // Center 50% (no) distortion
+          y = distorted_y + segment_thickness / 2;
+        }
         points[0] = GPoint(center.x - segment_width / 2, y - segment_thickness);
         points[1] = GPoint(center.x + segment_width / 2, y - segment_thickness);
         points[2] = GPoint(center.x + segment_width / 2, y);
@@ -235,22 +239,20 @@ static void set_thickness_and_distortion(int full_h, int digit, DigitLayout* lay
   // For every x% reduction in height, reduce thickness by 1
   int reduction = 0;
   float distortion = DISTORTION;
-  if(relative_height >= 0.85f){
-    reduction = 0;
-  } else if (relative_height >= 0.6f) {
+  if (relative_height < 0.6f) {
     reduction = 1;
-    // distortion += 0.02f;
-  } else if (relative_height < 0.6f) {
-    reduction = 1;
+    distortion += 0.04f;
+  }
+  if (relative_height < 0.5f) {
     distortion += 0.04f;
   }
   int thickness = THICKNESS_MAX - reduction;
   
   // If we need thinner segments, reduce further
-  bool needs_thinner_segment = (digit == 2 || digit == 3 || digit == 5 || digit == 6 || digit == 8 || digit == 9);
+  bool needs_thinner_segment = (digit == 4 || digit == 2 || digit == 3 || digit == 5 || digit == 6 || digit == 8 || digit == 9);
   if(needs_thinner_segment && thickness > THICKNESS_MIN){
     thickness -= 1;
-    distortion += 0.04f;
+    distortion += 0.05f;
   }
 
   // Ensure within bounds
@@ -309,8 +311,8 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
     } else if(parent_digit == 1){
       // NOP as of full height
     } else if (parent_digit == 7){
-      current->height -= parent->thickness;
-      current->center.y += parent->thickness/2;
+      current->height -= parent->thickness + 1;
+      current->center.y += parent->thickness/2 + 1;
       current->height -= MARGIN_H / 2;
       current->center.y += MARGIN_H / 4;
     }
@@ -420,10 +422,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   }
 
   // Screenshot
-  // hour_tens = 0;
-  // hour_ones = 8;
-  // min_tens = 0;
-  // min_ones = 3;
+  // hour_tens = 2;
+  // hour_ones = 6;
+  // min_tens = 2;
+  // min_ones = 7;
 
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];
@@ -469,6 +471,11 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
 
 static void animation_timer_callback(void *data) {
   s_animation_frame++;
+
+  // Apply pending display mode at the transition from shrink to grow
+  if (!s_grow_only && s_animation_frame == ANIMATION_FRAMES_SHRINK) {
+    s_display_mode = s_pending_display_mode;
+  }
 
   int max_frames = s_grow_only ? ANIMATION_FRAMES_GROW : TOTAL_ANIMATION_FRAMES;
 
@@ -536,7 +543,7 @@ static void return_to_time_callback(void *data) {
     s_stored_min_ones = battery_percent % 10;
   }
 
-  s_display_mode = DISPLAY_TIME;
+  s_pending_display_mode = DISPLAY_TIME;
   start_animation(false);  // Animate back to time
 }
 
@@ -568,7 +575,7 @@ static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
     s_stored_min_ones = minutes % 10;
 
     // Switch to date
-    s_display_mode = DISPLAY_DATE;
+    s_pending_display_mode = DISPLAY_DATE;
   } else if (s_display_mode == DISPLAY_DATE) {
     // Store date values
     int month = tick_time->tm_mon + 1;
@@ -580,7 +587,7 @@ static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
     s_stored_min_ones = day % 10;
 
     // Switch to battery/steps
-    s_display_mode = DISPLAY_BATTERY_STEPS;
+    s_pending_display_mode = DISPLAY_BATTERY_STEPS;
   } else {
     // Store battery/steps values
     BatteryChargeState battery = battery_state_service_peek();
@@ -597,13 +604,13 @@ static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
     s_stored_min_ones = battery_percent % 10;
 
     // Switch back to time (no timer needed since we're at time)
-    s_display_mode = DISPLAY_TIME;
+    s_pending_display_mode = DISPLAY_TIME;
   }
 
   start_animation(false);
 
   // Set timer to return to time after 5 seconds (except if already at time)
-  if (s_display_mode != DISPLAY_TIME) {
+  if (s_pending_display_mode != DISPLAY_TIME) {
     s_return_to_time_timer = app_timer_register(5000, return_to_time_callback, NULL);
   }
 }

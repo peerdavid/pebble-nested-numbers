@@ -3,11 +3,49 @@
 static Window *s_main_window;
 static Layer *s_display_layer;
 
+// Animation types
+typedef enum {
+  ANIM_ZOOM,
+  ANIM_LEFT,
+  ANIM_RIGHT,
+  ANIM_TOP,
+  ANIM_BOTTOM
+} AnimationType;
+
+// Animation type for each digit (0-9)
+static const AnimationType DIGIT_ANIMATIONS_1[10] = {
+  ANIM_ZOOM,    // 0
+  ANIM_BOTTOM,  // 1
+  ANIM_LEFT,    // 2
+  ANIM_RIGHT,   // 3
+  ANIM_TOP,     // 4
+  ANIM_RIGHT,   // 5
+  ANIM_ZOOM,    // 6
+  ANIM_TOP,     // 7
+  ANIM_ZOOM,    // 8
+  ANIM_TOP      // 9
+};
+
+static const AnimationType DIGIT_ANIMATIONS_2[10] = {
+  ANIM_ZOOM,    // 0
+  ANIM_TOP,     // 1
+  ANIM_LEFT,    // 2
+  ANIM_RIGHT,   // 3
+  ANIM_RIGHT,   // 4
+  ANIM_RIGHT,   // 5
+  ANIM_ZOOM,    // 6
+  ANIM_RIGHT,   // 7
+  ANIM_ZOOM,    // 8
+  ANIM_RIGHT    // 9
+};
+
 // Animation state
 static AppTimer *s_animation_timer;
 static int s_animation_frame = 0;
 static bool s_is_animating = false;
 static bool s_grow_only = false;  // If true, skip shrink phase
+static int s_animation_set[4];  // Store which animation set to use for each digit (0 or 1)
+static AnimationType s_innermost_anim_type;  // Random animation type for innermost digit
 
 // Display modes
 typedef enum {
@@ -26,12 +64,10 @@ static int s_stored_hour_ones = 0;
 static int s_stored_min_tens = 0;
 static int s_stored_min_ones = 0;
 
-#define ANIMATION_FRAMES_SHRINK 26
-#define ANIMATION_FRAMES_GROW 26
+#define ANIMATION_FRAMES_SHRINK 28
+#define ANIMATION_FRAMES_GROW 28
 #define TOTAL_ANIMATION_FRAMES (ANIMATION_FRAMES_SHRINK + ANIMATION_FRAMES_GROW)
 #define ANIMATION_FRAME_DURATION_MS 40
-static int grow_order[4] = {0, 1, 2, 3};
-static int shrink_order[4] = {0, 1, 2, 3};
 
 // Distortion constants - middle segment position as fraction from top
 #define DISTORTION 0.15f
@@ -74,10 +110,10 @@ static void shuffle_array(int *array, int size) {
   }
 }
 
-// Get scale factor for a digit level during animation
+// Get animation progress for a digit level during animation
 // level: 0=innermost (hour_tens), 1=hour_ones, 2=min_tens, 3=min_ones (outermost)
 // Returns 0.0 to 1.0
-static float get_digit_scale(int level, int animation_frame) {
+static float get_digit_animation_progress(int level, int animation_frame) {
   if (s_grow_only) {
     // Skip shrink phase, go straight to growing
     animation_frame += ANIMATION_FRAMES_SHRINK;
@@ -86,7 +122,7 @@ static float get_digit_scale(int level, int animation_frame) {
   // Animation order for growing and shrinking - randomized for fun!
   if (animation_frame < ANIMATION_FRAMES_SHRINK) {
     // Shrinking phase
-    int position = shrink_order[level];
+    int position = level;
     int start_frame = position * (ANIMATION_FRAMES_SHRINK / 4);
     int end_frame = start_frame + (ANIMATION_FRAMES_SHRINK / 4);
 
@@ -102,7 +138,7 @@ static float get_digit_scale(int level, int animation_frame) {
   } else {
     // Growing phase
     int grow_frame = animation_frame - ANIMATION_FRAMES_SHRINK;
-    int position = grow_order[level];
+    int position = 3-level;
     int start_frame = position * (ANIMATION_FRAMES_GROW / 4);
     int end_frame = start_frame + (ANIMATION_FRAMES_GROW / 4);
 
@@ -115,6 +151,53 @@ static float get_digit_scale(int level, int animation_frame) {
       float progress = (float)(grow_frame - start_frame) / (end_frame - start_frame);
       return progress;
     }
+  }
+}
+
+// Calculate scale and position offset for a digit based on its animation type
+// progress: 0.0 to 1.0 (0 = fully hidden, 1 = fully visible)
+// Returns scale factor and sets offset_x and offset_y
+static float calculate_animation_transform(AnimationType anim_type, float progress, int *offset_x, int *offset_y, GRect bounds) {
+  *offset_x = 0;
+  *offset_y = 0;
+  
+  if (progress <= 0.0f) {
+    return 0.0f;
+  }
+  if (progress >= 1.0f) {
+    return 1.0f;
+  }
+  
+  // Distance to travel for directional animations (in pixels)
+  int travel_distance = bounds.size.w;  // Use screen width as travel distance
+  
+  switch (anim_type) {
+    case ANIM_ZOOM:
+      // Classic zoom: scale from 0 to 1, no offset
+      return progress;
+      
+    case ANIM_LEFT:
+      // Fly in/out from/to the left
+      *offset_x = -(int)(travel_distance * (1.0f - progress));
+      return 1.0f;  // Keep full size
+      
+    case ANIM_RIGHT:
+      // Fly in/out from/to the right
+      *offset_x = (int)(travel_distance * (1.0f - progress));
+      return 1.0f;  // Keep full size
+      
+    case ANIM_TOP:
+      // Fly in/out from/to the top
+      *offset_y = -(int)(travel_distance * (1.0f - progress));
+      return 1.0f;  // Keep full size
+      
+    case ANIM_BOTTOM:
+      // Fly in/out from/to the bottom
+      *offset_y = (int)(travel_distance * (1.0f - progress));
+      return 1.0f;  // Keep full size
+      
+    default:
+      return progress;
   }
 }
 
@@ -351,6 +434,17 @@ static void draw_distorted_digit(GContext *ctx, int digit, GPoint center, int wi
   }
 }
 
+// Draw a single digit with animation transform (scale and offset)
+static void draw_animated_digit(GContext *ctx, int digit, GPoint center, int width, int height, int thickness, GColor color, float scale, float distortion, int offset_x, int offset_y) {
+  if (digit < 0 || digit > 9) return;
+  if (scale <= 0.0f) return;  // Don't draw if scale is 0
+
+  // Apply position offset
+  GPoint animated_center = GPoint(center.x + offset_x, center.y + offset_y);
+  
+  draw_distorted_digit(ctx, digit, animated_center, width, height, thickness, color, scale, distortion);
+}
+
 
 // Update procedure for the display layer
 static void display_layer_update_proc(Layer *layer, GContext *ctx) {
@@ -418,21 +512,34 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   }
 
   // Screenshot
-  // hour_tens = 8;
-  // hour_ones = 6;
-  // min_tens = 8;
-  // min_ones = 8;
+  // hour_tens = 1;
+  // hour_ones = 7;
+  // min_tens = 4;
+  // min_ones = 2;
 
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];
   int digits[4] = {min_ones, min_tens, hour_ones, hour_tens};
   calculate_digit_layouts(bounds, layouts, digits);
 
-  // Calculate scale factors for animation
-  float scale_level0 = s_is_animating ? get_digit_scale(0, s_animation_frame) : 1.0f;
-  float scale_level1 = s_is_animating ? get_digit_scale(1, s_animation_frame) : 1.0f;
-  float scale_level2 = s_is_animating ? get_digit_scale(2, s_animation_frame) : 1.0f;
-  float scale_level3 = s_is_animating ? get_digit_scale(3, s_animation_frame) : 1.0f;
+  // Calculate animation progress for each level
+  float progress_level0 = s_is_animating ? get_digit_animation_progress(0, s_animation_frame) : 1.0f;
+  float progress_level1 = s_is_animating ? get_digit_animation_progress(1, s_animation_frame) : 1.0f;
+  float progress_level2 = s_is_animating ? get_digit_animation_progress(2, s_animation_frame) : 1.0f;
+  float progress_level3 = s_is_animating ? get_digit_animation_progress(3, s_animation_frame) : 1.0f;
+  
+  // Calculate scale and offsets based on animation type for each digit
+  int offset_x[4], offset_y[4];
+  float scales[4];
+  
+  const AnimationType *anim_set_0 = s_animation_set[0] == 0 ? DIGIT_ANIMATIONS_1 : DIGIT_ANIMATIONS_2;
+  const AnimationType *anim_set_1 = s_animation_set[1] == 0 ? DIGIT_ANIMATIONS_1 : DIGIT_ANIMATIONS_2;
+  const AnimationType *anim_set_2 = s_animation_set[2] == 0 ? DIGIT_ANIMATIONS_1 : DIGIT_ANIMATIONS_2;
+  
+  scales[0] = calculate_animation_transform(anim_set_0[digits[0]], progress_level0, &offset_x[0], &offset_y[0], bounds);
+  scales[1] = calculate_animation_transform(anim_set_1[digits[1]], progress_level1, &offset_x[1], &offset_y[1], bounds);
+  scales[2] = calculate_animation_transform(anim_set_2[digits[2]], progress_level2, &offset_x[2], &offset_y[2], bounds);
+  scales[3] = calculate_animation_transform(s_innermost_anim_type, progress_level3, &offset_x[3], &offset_y[3], bounds);
 
   // Draw from largest to smallest (level 0 = outermost, level 3 = innermost)
   // Digit mapping: level 0 = min_ones, level 1 = min_tens, level 2 = hour_ones, level 3 = hour_tens
@@ -455,13 +562,11 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
     colors[3] = GColorLightGray;  // hour_tens
   }
 
-  float scales[4] = {scale_level3, scale_level2, scale_level1, scale_level0};
-
   // Draw digits from outermost to innermost
   for (int i = 0; i < 4; i++) {
-    draw_distorted_digit(ctx, digits[i], layouts[i].center, layouts[i].width,
-                        layouts[i].height, layouts[i].thickness, colors[i],
-                        scales[i], layouts[i].distortion);
+    draw_animated_digit(ctx, digits[i], layouts[i].center, layouts[i].width,
+                       layouts[i].height, layouts[i].thickness, colors[i],
+                       scales[i], layouts[i].distortion, offset_x[i], offset_y[i]);
   }
 }
 
@@ -497,12 +602,17 @@ static void start_animation(bool grow_only) {
   s_grow_only = grow_only;
   s_animation_frame = 0;
 
+  // Randomly select animation set for each digit
+  for (int i = 0; i < 4; i++) {
+    s_animation_set[i] = rand() % 2;
+  }
+  
+  // Innermost digit gets a completely random animation type (LEFT, RIGHT, TOP, or BOTTOM)
+  AnimationType random_anims[] = {ANIM_LEFT, ANIM_RIGHT, ANIM_TOP, ANIM_BOTTOM};
+  s_innermost_anim_type = random_anims[rand() % 4];
+
   // Start the animation timer
   s_animation_timer = app_timer_register(ANIMATION_FRAME_DURATION_MS, animation_timer_callback, NULL);
-
-  // Shuffle animation order for next time
-  shuffle_array(grow_order, 4);
-  shuffle_array(shrink_order, 4);
 
   // Trigger immediate redraw
   layer_mark_dirty(s_display_layer);

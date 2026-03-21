@@ -58,6 +58,10 @@ static DisplayMode s_display_mode = DISPLAY_TIME;
 static DisplayMode s_pending_display_mode = DISPLAY_TIME;
 static AppTimer *s_return_to_time_timer = NULL;
 
+// Double-tap detection
+static AppTimer *s_double_tap_timer = NULL;
+static bool s_waiting_for_second_tap = false;
+
 // Store the time to display during animation
 static int s_stored_hour_tens = 0;
 static int s_stored_hour_ones = 0;
@@ -653,10 +657,36 @@ static void return_to_time_callback(void *data) {
   start_animation(false);  // Animate back to time
 }
 
+static void double_tap_timeout(void *data) {
+  s_waiting_for_second_tap = false;
+  s_double_tap_timer = NULL;
+}
+
 static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
   // When we already animate, ignore new flicks and finish this first
   if(s_is_animating){
     return;
+  }
+
+  // If already in menu (return-to-time timer is active), single tap is enough
+  bool in_menu = (s_display_mode != DISPLAY_TIME) || (s_return_to_time_timer != NULL);
+
+  if (!in_menu) {
+    // Require double-tap to enter the menu
+    if (!s_waiting_for_second_tap) {
+      APP_LOG(APP_LOG_LEVEL_INFO, "First tap detected, waiting for second tap...");
+      s_waiting_for_second_tap = true;
+      s_double_tap_timer = app_timer_register(500, double_tap_timeout, NULL);
+      return;
+    }
+
+    // Second tap arrived in time - cancel the timeout and proceed
+    APP_LOG(APP_LOG_LEVEL_INFO, "Second tap detected, entering menu...");
+    s_waiting_for_second_tap = false;
+    if (s_double_tap_timer) {
+      app_timer_cancel(s_double_tap_timer);
+      s_double_tap_timer = NULL;
+    }
   }
 
   // Handle flick gesture - cycle through display modes
@@ -796,6 +826,12 @@ static void deinit(void) {
   if (s_return_to_time_timer) {
     app_timer_cancel(s_return_to_time_timer);
     s_return_to_time_timer = NULL;
+  }
+
+  // Cancel double-tap timer if running
+  if (s_double_tap_timer) {
+    app_timer_cancel(s_double_tap_timer);
+    s_double_tap_timer = NULL;
   }
 
   // Unsubscribe from services

@@ -323,21 +323,19 @@ static void set_thickness(int full_h, int digit, DigitLayout* layout){
   float relative_height = (float)layout->height / (float)full_h;
   
   // If we need thinner segments, reduce further
-  int thickness = THICKNESS_MAX;
-  if (relative_height < 0.66f) {
-    thickness -= 1;
+  layout->thickness = THICKNESS_MAX;
+  if (relative_height < 0.5f) {
+    layout->thickness = THICKNESS_MAX - 1;
   }
-  if (relative_height < 0.33f) {
-    thickness -= 1;
+  if (relative_height < 0.4f) {
+    layout->thickness = THICKNESS_MAX - 2;
   }
-
-  // Special chars need to be a bit thinner to keep height for the last digit
-  bool needs_thinner_segment = (digit == 4 || digit == 2 || digit == 3 || digit == 5 || digit == 6 || digit == 8 || digit == 9);
-  if(needs_thinner_segment){
-    thickness -= 1;
+  if (relative_height < 0.3f) {
+    layout->thickness = THICKNESS_MAX - 3;
   }
-
-  layout->thickness = thickness;
+  if (relative_height < 0.2f) {
+    layout->thickness = THICKNESS_MAX - 4;
+  }
 }
 
 static void set_distortion(DigitLayout* layout){
@@ -381,7 +379,7 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
       
       // current->thickness -= 1;
     } else if(parent_digit == 9 || parent_digit == 4){
-      current->center.y += (parent->height - parent_body_height) / 2;
+      current->center.y += (parent->height - parent_body_height) / 2 + 1;
       current->height = parent_body_height;
       current->height -= MARGIN_H / 2;
       current->center.y += MARGIN_H / 4;
@@ -516,10 +514,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   }
 
   // Screenshot
-  // hour_tens = 1;
-  // hour_ones = 7;
-  // min_tens = 4;
-  // min_ones = 2;
+  // hour_tens = 0;
+  // hour_ones = 9;
+  // min_tens = 3;
+  // min_ones = 9;
 
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];

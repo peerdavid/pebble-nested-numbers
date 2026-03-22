@@ -396,8 +396,12 @@ static void calculate_digit_layouts(GRect bounds, DigitLayout layouts[4], int di
       current->center.y += MARGIN_H / 4;
     }
 
-    // Compute the thickness
-    set_thickness(bounds.size.h, current_digit, current);
+    // Compute the thickness BUT not for 1 it can always be the same thickness as the parent
+    if(digits[level] == 1){
+      current->thickness = parent->thickness;
+    } else {
+      set_thickness(bounds.size.h, current_digit, current);
+    }
     set_distortion(current);
 
     if(level == 3){
@@ -514,10 +518,10 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   }
 
   // Screenshot
-  // hour_tens = 0;
-  // hour_ones = 9;
+  // hour_tens = 1;
+  // hour_ones = 0;
   // min_tens = 3;
-  // min_ones = 9;
+  // min_ones = 5;
 
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];

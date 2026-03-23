@@ -518,10 +518,11 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   }
 
   // Screenshot
-  // hour_tens = 1;
-  // hour_ones = 0;
-  // min_tens = 3;
-  // min_ones = 5;
+  s_display_mode = DISPLAY_BATTERY_STEPS;
+  hour_tens = 0;
+  hour_ones = 7;
+  min_tens = 6;
+  min_ones = 3;
 
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];
@@ -788,8 +789,9 @@ static void main_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
 
-  // Create display layer
-  s_display_layer = layer_create(bounds);
+  // Create display layer with 2px inset on all edges
+  GRect display_bounds = grect_inset(bounds, GEdgeInsets(2));
+  s_display_layer = layer_create(display_bounds);
   layer_set_update_proc(s_display_layer, display_layer_update_proc);
   layer_add_child(window_layer, s_display_layer);
 
@@ -804,6 +806,7 @@ static void main_window_unload(Window *window) {
 static void init(void) {
   // Create main window
   s_main_window = window_create();
+  window_set_background_color(s_main_window, GColorBlack);
   window_set_window_handlers(s_main_window, (WindowHandlers) {
     .load = main_window_load,
     .unload = main_window_unload

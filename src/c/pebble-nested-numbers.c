@@ -518,11 +518,11 @@ static void display_layer_update_proc(Layer *layer, GContext *ctx) {
   }
 
   // Screenshot
-  s_display_mode = DISPLAY_BATTERY_STEPS;
-  hour_tens = 0;
-  hour_ones = 7;
-  min_tens = 6;
-  min_ones = 3;
+  // s_display_mode = DISPLAY_BATTERY_STEPS;
+  // hour_tens = 0;
+  // hour_ones = 7;
+  // min_tens = 6;
+  // min_ones = 3;
 
   // Calculate proper dimensions and positions for all nested digits
   DigitLayout layouts[4];
